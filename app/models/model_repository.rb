@@ -165,12 +165,12 @@ class ModelRepository
   	      START primary=node({id})
   	      MATCH (primary:#{primary_label})
   	      RETURN Id(primary)
-  	      ", { :id => params[:id] })
+  	      ", { :id => params[:id] }, tx)
   	  else
   	  	result = CypherTools.execute_query_returning_scalar("
   	      MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })
   	      RETURN Id(primary)
-  	      ", { :unique_property => params[:unique_property] })
+  	      ", { :unique_property => params[:unique_property] }, tx)
       end
   	else
 	  node_contents = params[@primary_label]
