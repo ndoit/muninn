@@ -26,7 +26,7 @@ class ElasticSearchIO
 
       LogTime.info("Response received.")
       if !response.kind_of? Net::HTTPSuccess
-        return { Success: false, Message: response.value }
+        return { Success: false, Message: response.message }
       end
     end
     return { Success: true }
@@ -48,21 +48,23 @@ class ElasticSearchIO
   end
 
   def delete_all_nodes(label)
-    LogTime.info("Delete all nodes of type: #{label.to_s}")
+    LogTime.info("Delete all nodes of type: #{label}")
 
-    uri = URI.parse("http://localhost:9200/node/#{label.to_s}")
+    uri = URI.parse("http://localhost:9200/node/#{label}/")
     request = Net::HTTP::Delete.new(uri.path)
 
-    LogTime.info("Request created.")
+    LogTime.info("Request created: #{uri.path}")
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(request)
     end
 
-    LogTime.info("Response received.")
+    LogTime.info("Response received: " + response.to_s)
     if response.kind_of? Net::HTTPSuccess
       return { Success: true }
+    elsif response.code == "404"
+      return { Success: true } #If we got a 404, that means there weren't any of these nodes anyway.
     else
-      return { Success: false, Message: response.value }
+      return { Success: false, Message: response.message }
     end
   end
 
@@ -81,7 +83,7 @@ class ElasticSearchIO
     if response.kind_of? Net::HTTPSuccess
       return { Success: true }
     else
-      return { Success: false, Message: response.value }
+      return { Success: false, Message: response.message }
     end
   end
 
@@ -145,7 +147,7 @@ class ElasticSearchIO
       return { Success: true, Results: extract_results(response.body) }
     else
       LogTime.info("Response failed.")
-      return { Success: false, Message: response.value }
+      return { Success: false, Message: response.message }
     end
   end
 
