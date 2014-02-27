@@ -48,9 +48,9 @@ class ElasticSearchIO
   end
 
   def delete_all_nodes(label)
-    LogTime.info("Delete all nodes of type: #{label}")
+    LogTime.info("Delete all nodes of type: #{label.to_s}")
 
-    uri = URI.parse("http://localhost:9200/node/#{label}")
+    uri = URI.parse("http://localhost:9200/node/#{label.to_s}")
     request = Net::HTTP::Delete.new(uri.path)
 
     LogTime.info("Request created.")
