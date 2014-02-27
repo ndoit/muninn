@@ -158,50 +158,40 @@ class GraphModel
   end
 
   def define_model
-    @nodes[:Term] = NodeModel.new({
-      :label => "Term",
-	  :properties => [ "Name", "Definition", "PossibleValues", "Notes", "DataSensitivity", "DataAvailability" ],
-	  :sensitive_properties => [ "Source" ],
-	  :unique_property => "Name"
-    })
-	  
-    @nodes[:Office] = NodeModel.new({
-	  :label => "Office",
-	  :properties => [ "Name" ],
-	  :unique_property => "Name"
-    })
-	  
-    @nodes[:Person] = NodeModel.new({
-	  :label => "Person",
-	  :properties => [ "NetId", "FirstName", "LastName" ],
-	  :unique_property => "NetId"
-    })
-	  
-    @nodes[:Report] = NodeModel.new({
-	  :label => "Report",
-	  :properties => [ "Name", "Uri", "Description" ],
-	  :unique_property => "Name"
-    })
-  
-    @relationships << RelationshipModel.new({
-	  :source_label => :Office,
-	  :relation_name => "HAS_STAKE_IN",
-	  :target_label => :Term,
-	  :properties => [ "Stake" ],
-	  :name_to_source => "Stakes",
-	  :name_to_target => "Stakeholders"
-    })
-	  
-    @relationships << RelationshipModel.new({
-	  :source_label => :Report,
-	  :relation_name => "CONTAINS",
-	  :target_label => :Term
-    })
-	  
-    @relationships << RelationshipModel.new({
-	  :source_label => :Person,
-	  :relation_name => "REPRESENTS_FOR",
-	  :target_label => :Office
-    })
+  	yaml_data = YAML.load_file("config/schema.yml")
+  	LogTime.info(yaml_data.to_s)
+  	node_labels = yaml_data["nodes"].keys
+  	node_labels.each do |label|
+  	  unique_property = yaml_data["nodes"][label]["unique_property"]
+  	  if yaml_data["nodes"][label].has_key?("other_properties")
+  	    properties = yaml_data["nodes"][label]["other_properties"]
+  	    properties << unique_property
+  	  else
+  	  	properties = [ unique_property ]
+  	  end
+  	  @nodes[label.to_sym] = NodeModel.new({
+  	    :label => label,
+  	    :properties => properties,
+  	    :unique_property => unique_property
+  	  })
+  	end
+
+  	relationship_names = yaml_data["relationships"].keys
+  	relationship_names.each do |name|
+  	  parameters = {
+  	    :relation_name => name,
+  	    :source_label => yaml_data["relationships"][name]["source_label"].to_sym,
+  	    :target_label => yaml_data["relationships"][name]["target_label"].to_sym
+  	  }
+  	  optional_parameters = [ "properties", "source_number", "target_number", "name_to_source", "name_to_target"]
+  	  optional_parameters.each do |optional_parameter|
+        if yaml_data["relationships"][name].has_key?(optional_parameter)
+          LogTime.info("Adding optional parameter: " + optional_parameter)
+          parameters[optional_parameter.to_sym] = yaml_data["relationships"][name][optional_parameter]
+        end
+      end
+      LogTime.info("Storing relationship: " + name)
+      @relationships << RelationshipModel.new(parameters)
+  	end
   end
 end

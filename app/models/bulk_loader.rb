@@ -155,7 +155,7 @@ class BulkLoader
     node_states.each do |node_state|
       output = write_primary_node_content(node_state)
       if !output[:Success]
-        error_messages = error_messages + "\n**Failed to write data for #{node_state.target_uri}: " + output[:Message]
+        error_messages = error_messages + "\n**Failed to write node data for #{node_state.target_uri}: " + output[:Message]
       end
     end
 
