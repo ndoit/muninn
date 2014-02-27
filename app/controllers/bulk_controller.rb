@@ -8,7 +8,7 @@ class BulkController < ApplicationController
     if params[:confirmation] != "NoSeriouslyIMeanIt"
       render :status => 500, :json => { Success: false,
         Message: "Confirmation is required. To irreversibly wipe the entire database, " +
-        "send a delete request to the URL: bulk/wipe/NoSeriouslyIMeanIt"}
+        "send a delete request to the URL: bulk/NoSeriouslyIMeanIt"}
       return
     end
     result = BulkLoader.new.wipe
