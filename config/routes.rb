@@ -20,7 +20,9 @@ BIPortalDataService::Application.routes.draw do
     get nodes, to: nodes + '#index'
   end
 
-  post '/bulk_load', to: 'bulk_load#load'
+  get '/bulk/export', to: 'bulk#export'
+  post '/bulk/load', to: 'bulk#load'
+  delete '/bulk/wipe/:confirmation', to: 'bulk#wipe'
   
   create_resources 'terms'
   get '/terms/history/id/:id', to: 'terms#history'

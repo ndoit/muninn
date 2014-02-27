@@ -33,14 +33,12 @@ class ElasticSearchIO
   end
 
   def rebuild_search_index
-    labels = [ :Term, :Report, :Person, :Office, :ProposedTerm ]
-
-    labels.each do |label|
-      delete_result = delete_all_nodes(label)
+    GraphModel.instance.nodes.values.each do |node_model|
+      delete_result = delete_all_nodes(node_model.label)
       if !delete_result[:Success]
         return delete_result
       end
-      update_result = update_all_nodes(label)
+      update_result = update_all_nodes(node_model.label)
       if !update_result[:Success]
         return update_result
       end
@@ -90,8 +88,7 @@ class ElasticSearchIO
   def update_node(label, id)
     LogTime.info("Update node " + id.to_s + " of type: #{label}")
 
-    node_model = GraphModel.instance.nodes[label]
-    LogTime.info(node_model.to_s)
+    node_model = GraphModel.instance.nodes[label.to_sym]
 
     node_data = CypherTools.execute_query_into_hash_array("
 
@@ -109,8 +106,7 @@ class ElasticSearchIO
   def update_all_nodes(label)
     LogTime.info("Update all nodes of type: #{label}")
 
-    node_model = GraphModel.instance.nodes[label]
-    LogTime.info(node_model.to_s)
+    node_model = GraphModel.instance.nodes[label.to_sym]
 
     node_data = CypherTools.execute_query_into_hash_array("
 
