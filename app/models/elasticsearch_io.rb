@@ -11,7 +11,7 @@ class ElasticSearchIO
   def update_nodes_with_data(label, data)
     LogTime.info("Loading data: " + data.to_s)
     data.each do |node|
-      id = node["Id"]
+      id = node["id"]
       LogTime.info("Updating node: " + id.to_s)
 
       uri = URI.parse("http://localhost:9200/node/#{label}/#{id}")
@@ -26,25 +26,25 @@ class ElasticSearchIO
 
       LogTime.info("Response received.")
       if !response.kind_of? Net::HTTPSuccess
-        return { Success: false, Message: response.message }
+        return { success: false, message: response.message }
       end
     end
-    return { Success: true }
+    return { success: true }
   end
 
   def rebuild_search_index
     GraphModel.instance.nodes.values.each do |node_model|
       delete_result = delete_all_nodes(node_model.label)
-      if !delete_result[:Success]
+      if !delete_result[:success]
         return delete_result
       end
       update_result = update_all_nodes(node_model.label)
-      if !update_result[:Success]
+      if !update_result[:success]
         return update_result
       end
     end
 
-    return { Success: true }
+    return { success: true }
   end
 
   def delete_all_nodes(label)
@@ -60,11 +60,11 @@ class ElasticSearchIO
 
     LogTime.info("Response received: " + response.to_s)
     if response.kind_of? Net::HTTPSuccess
-      return { Success: true }
+      return { success: true }
     elsif response.code == "404"
-      return { Success: true } #If we got a 404, that means there weren't any of these nodes anyway.
+      return { success: true } #If we got a 404, that means there weren't any of these nodes anyway.
     else
-      return { Success: false, Message: response.message }
+      return { success: false, message: response.message }
     end
   end
 
@@ -81,9 +81,9 @@ class ElasticSearchIO
 
     LogTime.info("Response received.")
     if response.kind_of? Net::HTTPSuccess
-      return { Success: true }
+      return { success: true }
     else
-      return { Success: false, Message: response.message }
+      return { success: false, message: response.message }
     end
   end
 
@@ -126,7 +126,7 @@ class ElasticSearchIO
 
     if label == nil
       if query_string == nil
-        return { Success: false, Message: "Specify a result type or a search term." }
+        return { success: false, message: "Specify a result type or a search term." }
       else
         uri_string = "/node/_search?q=#{query_string}"
       end
@@ -144,10 +144,10 @@ class ElasticSearchIO
 
     if response.kind_of? Net::HTTPSuccess
       LogTime.info("Response received: " + response.body)
-      return { Success: true, Results: extract_results(response.body) }
+      return { success: true, results: extract_results(response.body) }
     else
       LogTime.info("Response failed.")
-      return { Success: false, Message: response.message }
+      return { success: false, message: response.message }
     end
   end
 
@@ -160,10 +160,10 @@ class ElasticSearchIO
     output = []
     response_hash["hits"]["hits"].each do |hit|
       node = {
-        :Id => hit["_id"].to_i,
-        :Type => hit["_type"],
-        :Score => hit["_score"],
-        :Data => hit["_source"]
+        :id => hit["_id"].to_i,
+        :type => hit["_type"],
+        :score => hit["_score"],
+        :data => hit["_source"]
       }
       output << node
     end

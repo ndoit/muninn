@@ -1,6 +1,6 @@
 class OfficesController < GraphController
 
   def initialize()
-    @primary_label = :Office
+    @primary_label = :office
   end
 end

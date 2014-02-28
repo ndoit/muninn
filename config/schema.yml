@@ -1,36 +1,36 @@
 nodes:
-    Term:
-        unique_property: Name
+    term:
+        unique_property: name
         other_properties:
-            - Definition
-            - SourceSystem
-            - PossibleValues
-            - Notes
-            - DataSensitivity
-            - DataAvailability
-    Office:
-        unique_property: Name
-    Person:
-        unique_property: NetId
+            - definition
+            - source_system
+            - possible_values
+            - notes
+            - data_sensitivity
+            - data_availability
+    office:
+        unique_property: name
+    person:
+        unique_property: net_id
         other_properties:
-            - FirstName
-            - LastName
-    Report:
-        unique_property: Name
+            - first_name
+            - last_name
+    report:
+        unique_property: name
         other_properties:
-            - Uri
-            - Description
+            - uri
+            - description
 relationships:
     HAS_STAKE_IN:
-        source_label: Office
-        name_to_source: Stakes
-        target_label: Term
-        name_to_target: Stakeholders
+        source_label: office
+        name_to_source: stakes
+        target_label: term
+        name_to_target: stakeholders
         properties:
-            - Stake
+            - stake
     CONTAINS:
-        source_label: Report
-        target_label: Term
+        source_label: report
+        target_label: term
     REPRESENTS_FOR:
-        source_label: Person
-        target_label: Office
+        source_label: person
+        target_label: office

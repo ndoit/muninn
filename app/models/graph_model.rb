@@ -34,7 +34,7 @@ class NodeModel
   end
   
   def property_string(node_reference, include_sensitive = false)
-    output = "ID(#{node_reference}) AS Id"
+    output = "ID(#{node_reference}) AS id"
 	@properties.each do |property|
 	  output = output + ", #{node_reference}.#{property}"
 	end

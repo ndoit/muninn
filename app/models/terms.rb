@@ -11,7 +11,7 @@ class Terms
 	  @id = package["Id"]
 	  if @term != nil
 	    if !@term.has_key?("Name") || @term["Name"] == ""
-	      return { Message: "Cannot set term name to blank value.", Term: @term, Success: false }
+	      return { message: "Cannot set term name to blank value.", Term: @term, success: false }
 		end
 		update_term(@id, @term, @neo)
 	  end
@@ -19,10 +19,10 @@ class Terms
 	  if @term != nil
 	    @id = create_term(@term, @neo)
 	    if @id == nil
-	      return { Message: "Term already exists.", TermName: @term["Name"], Success: false }
+	      return { message: "Term already exists.", TermName: @term["Name"], success: false }
 	    end
 	  else
-	    return { Message: "Term object missing from create request.", Success: false }
+	    return { message: "Term object missing from create request.", success: false }
 	  end
 	end
 	
@@ -30,7 +30,7 @@ class Terms
 	  write_stakeholders(@id, package["Stakeholders"], @neo)
 	end
   
-	return { Id: @id, Success: true }
+	return { Id: @id, success: true }
   end
   
   def self.read(name)
@@ -59,7 +59,7 @@ class Terms
 	  term.Definition,
 	  term.PossibleValues,
 	  term.Notes,
-	  term.CreatedDate
+	  term.created_date
 	
 	", "name" => name))[0]
   end
@@ -87,10 +87,10 @@ class Terms
 	MERGE (term:Term { Name: {name} })
 	ON CREATE SET
 	  term.IsPublished = false,
-	  term.CreatedDate = {now},
-	  term.ModifiedDate = {now}
+	  term.created_date = {now},
+	  term.modified_date = {now}
 	RETURN
-	  term.CreatedDate = {now} AS CreatedNew,
+	  term.created_date = {now} AS CreatedNew,
 	  Id(term) AS Id
 	
 	",
@@ -113,8 +113,8 @@ class Terms
 	  proposedTerm.Definition = {definition},
 	  proposedTerm.PossibleValues = {possible_values},
 	  proposedTerm.Notes = {notes},
-	  proposedTerm.CreatedDate = {now},
-	  proposedTerm.ModifiedDate = {now}
+	  proposedTerm.created_date = {now},
+	  proposedTerm.modified_date = {now}
 	
 	",
 	"id" => @create_result["Id"],
@@ -138,14 +138,14 @@ class Terms
 	  proposedTerm.Definition = {definition},
 	  proposedTerm.PossibleValues = {possible_values},
 	  proposedTerm.Notes = {notes},
-	  proposedTerm.CreatedDate = {now},
-	  proposedTerm.ModifiedDate = {now}
+	  proposedTerm.created_date = {now},
+	  proposedTerm.modified_date = {now}
 	ON MATCH SET
 	  proposedTerm.Name = {name},
 	  proposedTerm.Definition = {definition},
 	  proposedTerm.PossibleValues = {possible_values},
 	  proposedTerm.Notes = {notes},
-	  proposedTerm.ModifiedDate = {now}
+	  proposedTerm.modified_date = {now}
 	  
 	  ",
 	"id" => id,

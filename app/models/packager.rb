@@ -13,7 +13,7 @@ class Packager
     #Extract the "package" representing the object in question.
     LogTime.info("Extracting package from parameters.")
 	package = extract_package_from(params, create_required, primary_label)
-	if !package[:Success]
+	if !package[:success]
 	  return package
 	end
 	
@@ -39,7 +39,7 @@ class Packager
 	package[:CreateRequired] = create_required
 	
 	package.delete(:id)
-	package[:Success] = true
+	package[:success] = true
 	return package
   end
 end

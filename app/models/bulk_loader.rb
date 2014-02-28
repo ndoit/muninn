@@ -20,14 +20,14 @@ class BulkLoader
       raise(e)
     end
 
-    result = { Success: true }
+    result = { success: true }
 
     search_result = ElasticSearchIO.instance.rebuild_search_index
-    if !search_result[:Success]
-      result[:Searchable] = false
-      result[:SearchableMessage] = search_result[:Message]
+    if !search_result[:success]
+      result[:searchable] = false
+      result[:searchable_message] = search_result[:message]
     else
-      result[:Searchable] = true
+      result[:searchable] = true
     end
 
     return result
@@ -41,32 +41,32 @@ class BulkLoader
         START n=node(*)
         MATCH (n:#{node_model.label.to_s})
         RETURN
-          Id(n) AS Id,
-          n.#{node_model.unique_property} AS UniqueProperty
+          Id(n) AS id,
+          n.#{node_model.unique_property} AS unique_property
         ",{},nil)
       all_nodes.each do |node|
-        exported_node = export_node(node_model, node["Id"])
+        exported_node = export_node(node_model, node["id"])
         if exported_node == nil
-          return { Success: false, Message: "Unable to read #{node_model.label.to_s} Id=" + node["Id"].to_s }
+          return { success: false, message: "Unable to read #{node_model.label.to_s} id=" + node["id"].to_s }
         end
         export_result << {
-          "target_uri" => node_model.label.to_s.downcase.pluralize + "/" + node["UniqueProperty"],
+          "target_uri" => node_model.label.to_s.downcase.pluralize + "/" + node["unique_property"],
           "content" => exported_node
         }
       end
     end
 
     return {
-      Success: true,
-      ExportResult: export_result
+      success: true,
+      export_result: export_result
     }
   end
 
   def export_node(node_model, id)
     repository = ModelRepository.new(node_model.label.to_sym)
     read_result = repository.read({ :id => id}, nil)
-    if !read_result[:Success]
-      LogTime.info(read_result[:Message])
+    if !read_result[:success]
+      LogTime.info(read_result[:message])
       return nil
     end
 
@@ -76,9 +76,9 @@ class BulkLoader
     output = {}
 
     primary_node = read_result[node_model.label.to_sym].clone
-    primary_node.delete("CreatedDate")
-    primary_node.delete("ModifiedDate")
-    primary_node.delete("Id")
+    primary_node.delete("created_date")
+    primary_node.delete("modified_date")
+    primary_node.delete("id")
 
     output[node_model.label.to_sym] = primary_node
 
@@ -141,38 +141,38 @@ class BulkLoader
     duplicate_uris = find_duplicate_uris(node_states)
     if duplicate_uris.length > 0
       joined_duplicates = duplicate_uris.join(", ")
-      return { Success: false, Message: "Duplicate target_uris found: #{joined_duplicates}" }
+      return { success: false, message: "Duplicate target_uris found: #{joined_duplicates}" }
     end
 
     missing_dependencies = find_missing_dependencies(node_states)
     if missing_dependencies.length > 0
       joined_missing_dependencies = missing_dependencies.join(", ")
-      return { Success: false, Message: "Missing dependencies found: #{joined_missing_dependencies}" }
+      return { success: false, message: "Missing dependencies found: #{joined_missing_dependencies}" }
     end
 
     error_messages = ""
 
     node_states.each do |node_state|
       output = write_primary_node_content(node_state)
-      if !output[:Success]
-        error_messages = error_messages + "\n**Failed to write node data for #{node_state.target_uri}: " + output[:Message]
+      if !output[:success]
+        error_messages = error_messages + "\n**Failed to write node data for #{node_state.target_uri}: " + output[:message]
       end
     end
 
     node_states.each do |node_state|
       output = write_other_content(node_state)
-      if !output[:Success]
-        error_messages = error_messages + "\n**Failed to write relationships for #{node_state.target_uri}: " + output[:Message]
+      if !output[:success]
+        error_messages = error_messages + "\n**Failed to write relationships for #{node_state.target_uri}: " + output[:message]
       end
     end
 
     if error_messages.length > 0
       result = {
-      	Success: false, Message: "Some target_uris were not successfully updated:\n\n#{error_messages}"
+      	success: false, message: "Some target_uris were not successfully updated:\n\n#{error_messages}"
       }
     else
       result = {
-      	Success: true
+      	success: true
       }
     end
 
@@ -180,11 +180,11 @@ class BulkLoader
     #a partially successful load. The search index should always match what's in the database. Hence, we
     #don't check for success on the bulk load; we rebuild the search index regardless.
     search_result = ElasticSearchIO.instance.rebuild_search_index
-    if !search_result[:Success]
-      result[:Searchable] = false
-      result[:SearchableMessage] = search_result[:Message]
+    if !search_result[:success]
+      result[:searchable] = false
+      result[:searchable_message] = search_result[:message]
     else
-      result[:Searchable] = true
+      result[:searchable] = true
     end
 
     return result
@@ -233,19 +233,19 @@ class BulkLoader
     split_result = DesiredNodeState.split_uri(uri_dependency)
     repository = ModelRepository.new(split_result[:label].to_sym)
     output = repository.read({ :unique_property => split_result[:unique_property] }, nil)
-    return !output[:Success]
+    return !output[:success]
   end
 
   def write_primary_node_content(node_state)
     repository = ModelRepository.new(node_state.primary_label.to_sym)
     read_result = repository.read({ :unique_property => node_state.unique_property }, nil)
-    node_exists = read_result[:Success]
+    node_exists = read_result[:success]
 
   	if node_state.action == :delete
   	  if !node_exists
   	  	#Nothing to do here.
   	  	LogTime.info "Delete requested, node doesn't exist."
-  	  	return { Success: true }
+  	  	return { success: true }
   	  end
   	  content = { :unique_property => node_state.unique_property }
   	  	LogTime.info "Attempting delete."
@@ -254,7 +254,7 @@ class BulkLoader
 
   	if node_state.primary_node_content == nil
   	  #No primary node update is required.
-  	  return { Success: true }
+  	  return { success: true }
   	end
 
     content = node_state.primary_node_content.clone
@@ -267,11 +267,11 @@ class BulkLoader
   def write_other_content(node_state)
   	if node_state.action == :delete
   	  #If this node has been deleted, we obviously don't have anything to do here.
-  	  return { Success: true }
+  	  return { success: true }
   	end
   	if node_state.other_content == nil
   	  #No relationship updates are required.
-  	  return { Success: true }
+  	  return { success: true }
   	end
     repository = ModelRepository.new(node_state.primary_label.to_sym)
     content = node_state.other_content.clone
@@ -288,7 +288,7 @@ class DesiredNodeState
 
   def self.split_uri(uri)
     first_slash = uri.index('/')
-    label = uri[0,first_slash].singularize.capitalize
+    label = uri[0,first_slash].singularize
     unique_property = uri[first_slash+1,uri.length-1]
     return { :label => label, :unique_property => unique_property }
   end

@@ -15,7 +15,7 @@ class CypherTools
     output = @@neo.commit_transaction(transaction)
 	if output["errors"].length > 0
 	  LogTime.info("Commit failed. Raising error.")
-	  raise output["errors"][0]["message"]
+	  raise output["errors"][0]["Message"]
 	end
 	LogTime.info("Commit successful.")
 	return output
@@ -43,8 +43,8 @@ class CypherTools
 	  if error["code"]=="Neo.ClientError.Statement.EntityNotFound"
 	  	raise "One of the ids given was invalid."
 	  else
-	  	if results["errors"][0].has_key?("message") && results["errors"][0]["message"] != nil
-	      raise(results["errors"][0]["message"])
+	  	if results["errors"][0].has_key?("Message") && results["errors"][0]["Message"] != nil
+	      raise(results["errors"][0]["Message"])
 	    else
 	      raise("Unknown Neo4j error (no message returned). Please review logs.")
 	    end

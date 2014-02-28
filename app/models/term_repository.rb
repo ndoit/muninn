@@ -1,6 +1,6 @@
 class TermRepository < ModelRepository
   def initialize
-  	super(:Term)
+  	super(:term)
   end
 
   def read(params, cas_user)
@@ -11,26 +11,26 @@ class TermRepository < ModelRepository
     end
 
     output = super(params, cas_user)
-    if version_number==0 || !output[:Success]
+    if version_number==0 || !output[:success]
       return output
     end
-    history_result = history(output[:Term]["Id"])
-    if !history_result[:Success]
+    history_result = history(output[:term]["id"])
+    if !history_result[:success]
       return history_result
     end
     if version_number > history_result[:OldVersions].length
-      return { Success: false, Message: "Version not found: " + version_number.to_s }
+      return { success: false, message: "Version not found: " + version_number.to_s }
     end
     i = 0
-    model = GraphModel.instance.nodes[:Term]
+    model = GraphModel.instance.nodes[:term]
     while i < version_number do
       old_version = history_result[:OldVersions][i]
       model.properties.each do |property|
         if old_version.has_key?(property)
-          output[:Term][property] = old_version[property]
+          output[:term][property] = old_version[property]
         end
       end
-      output[:Term]["ModifiedDate"] = old_version["ChangedDate"]
+      output[:term]["modified_date"] = old_version["ChangedDate"]
       i = i+1
     end
     return output
@@ -39,7 +39,7 @@ class TermRepository < ModelRepository
   def history(id, cas_user)
     history_list = CypherTools.execute_query_into_hash_array("
       START term=node({id})
-      MATCH (term:Term)-[*]->(changedFrom:TermHistory)
+      MATCH (term:term)-[*]->(changedFrom:termHistory)
       RETURN changedFrom
       ", { :id => id }, nil)
     output = []
@@ -54,6 +54,6 @@ class TermRepository < ModelRepository
     end
     output.sort_by { |x| x["ChangedDate"] }
 
-    return { Success: true, OldVersions: output }
+    return { success: true, OldVersions: output }
   end
 end

@@ -10,9 +10,9 @@ class ModelRepository
   def validate_parameters(parameters)
   	parameters.keys.each do |key|
   	  if parameters[key] == nil
-  	  	return { Message: "#{key} is required.", Success: false }
+  	  	return { message: "#{key} is required.", success: false }
   	  end
-  	  return { Success: true }
+  	  return { success: true }
   	end
   end
 
@@ -21,7 +21,7 @@ class ModelRepository
     result = nil
 	begin
 	  result = write_with_transaction(params, create_required, tx)
-	  if result[:Success]
+	  if result[:success]
 	    CypherTools.commit_transaction(tx)
 	  else
 	    CypherTools.rollback_transaction(tx)
@@ -31,13 +31,13 @@ class ModelRepository
 	  raise(e)
 	end
 
-	if result[:Success]
-	  search_result = ElasticSearchIO.instance.update_node(@primary_label, result[:Id])
-	  if !search_result[:Success]
-	  	result[:Searchable] = false
-	  	result[:SearchableMessage] = search_result[:Message]
+	if result[:success]
+	  search_result = ElasticSearchIO.instance.update_node(@primary_label, result[:id])
+	  if !search_result[:success]
+	  	result[:searchable] = false
+	  	result[:searchable_message] = search_result[:message]
 	  else
-	  	result[:Searchable] = true
+	  	result[:searchable] = true
 	  end
 	end
 	return result
@@ -49,40 +49,40 @@ class ModelRepository
 
     if !params.has_key?(@primary_label)
    	  if create_required
-  	    return { Message: "Cannot create without a #{primary_label} element.", Success: false }
+  	    return { message: "Cannot create without a #{primary_label} element.", success: false }
   	  end
     elsif !params[@primary_label].has_key?(primary_model.unique_property) ||
   		params[@primary_label][primary_model.unique_property] == ""
-  	  return { Message: primary_model.unique_property + " cannot be blank or nil.", Success: false }
+  	  return { message: primary_model.unique_property + " cannot be blank or nil.", success: false }
     end
 	
 	if create_required
       LogTime.info("Creating new #{primary_label}.")
 	  create_result = create_primary_node(params, tx)
-	  if !create_result[:Success]
+	  if !create_result[:success]
 	  	return create_result
 	  end
-	  id = create_result[:Id]
+	  id = create_result[:id]
 	else
       LogTime.info("Updating primary node.")
       update_result = update_primary_node(params, tx)
-      if !update_result[:Success]
+      if !update_result[:success]
       	return update_result
       else
-      	id = update_result[:Id]
+      	id = update_result[:id]
       end
 	end
 
 	relationship_result = write_relationships(id, params, tx)
-	if !relationship_result[:Success]
+	if !relationship_result[:success]
 	  return relationship_result
 	end
 
-	return { Id: id, Success: true }
+	return { id: id, success: true }
   end
 
   def write_relationships(id, params, tx)
-  	LogTime.info("Writing relationships for node Id=#{id.to_s}.")
+  	LogTime.info("Writing relationships for node id=#{id.to_s}.")
     primary_model = GraphModel.instance.nodes[@primary_label]
 	primary_model.outgoing.each do |relation|
 	  if params[:CreateRequired] || !relation.immutable #Immutable relationships can be created but not modified.
@@ -90,11 +90,11 @@ class ModelRepository
 		is_required = relation.target_number == :one
 	    if params.has_key?(params_key)
 	      write_result = write_relationship(id, relation, :outgoing, params, params_key, tx)
-		  if !write_result[:Success]
+		  if !write_result[:success]
 		    return write_result
 		  end
 	    elsif is_required && params[:CreateRequired]
-	      return { Message: "Cannot create #{primary_label} without #{params_key}.", Success: false }
+	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
 	    end
 	  end
 	end
@@ -104,16 +104,16 @@ class ModelRepository
 		is_required = relation.source_number == :one
 	    if params.has_key?(params_key)
 	      write_result = write_relationship(id, relation, :incoming, params, params_key, tx)
-		  if !write_result[:Success]
+		  if !write_result[:success]
 		    return write_result
 		  end
 	    elsif is_required && params[:CreateRequired]
-	      return { Message: "Cannot create #{primary_label} without #{params_key}.", Success: false }
+	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
 	    end
 	  end
 	end
 	
-	return { Success: true }
+	return { success: true }
   end
   
   def create_primary_node(params, tx)
@@ -126,7 +126,8 @@ class ModelRepository
 	  if node_contents.has_key?(property) && node_contents[property] != nil
 	    parameters[property] = node_contents[property]
 	  else
-	  	return { Message: "Cannot create #{primary_label} without specifying #{property}.", Success: false }
+	  	parameters[property] = nil
+	  	#return { message: "Cannot create #{primary_label} without specifying #{property}.", success: false }
 	  end
 	end
 
@@ -136,21 +137,21 @@ class ModelRepository
 	
 	MERGE (primary:#{primary_label} { #{node_model.unique_property}: { #{node_model.unique_property} } })
 	ON CREATE SET
-	  primary.CreatedDate = {now},
-	  primary.ModifiedDate = {now},
+	  primary.created_date = {now},
+	  primary.modified_date = {now},
 	  " + node_model.property_write_string("primary") + "
 	RETURN
-	  primary.CreatedDate = {now} AS CreatedNew,
-	  Id(primary) AS Id
+	  primary.created_date = {now} AS created_new,
+	  Id(primary) AS id
 	
 	", parameters, tx)[0]
 	
-	if !create_result["CreatedNew"]
+	if !create_result["created_new"]
 	  #Just as a note, the bulk loader depends on the Id being returned here.
-	  return { Message: "#{primary_label} already exists.", Id: create_result["Id"], Success: false }
+	  return { message: "#{primary_label} already exists.", id: create_result["id"], success: false }
 	end
 
-	return { Id: create_result["Id"], Success: true }
+	return { id: create_result["id"], success: true }
   end
   
   def update_primary_node(params, tx)
@@ -182,7 +183,7 @@ class ModelRepository
 		  START primary=node({id})
 		  MATCH (primary:#{primary_label})
 		  SET
-		    primary.ModifiedDate = {now},
+		    primary.modified_date = {now},
 		    " + node_model.property_write_string("primary") + "
 		  RETURN Id(primary)"
 	  else
@@ -190,7 +191,7 @@ class ModelRepository
 		query_string = "
 		  MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })
 		  SET
-		    primary.ModifiedDate = {now},
+		    primary.modified_date = {now},
 		    " + node_model.property_write_string("primary") + "
 		  RETURN Id(primary)"
       end
@@ -199,7 +200,8 @@ class ModelRepository
 	    if node_contents.has_key?(property) && node_contents[property] != nil
 		  parameters[property] = node_contents[property]
 		else
-		  return { Message: "Cannot modify #{primary_label} without specifying #{property}.", Success: false }
+		  parameters[property] = nil
+		#  return { message: "Cannot modify #{primary_label} without specifying #{property}.", success: false }
 		end
 	  end
 
@@ -208,13 +210,13 @@ class ModelRepository
 
     if result == nil
       if params[:id] != nil
-      	return { Success: false, Message: "#{primary_label} with Id = " + params[:id].to_s + " not found." }
+      	return { success: false, message: "#{primary_label.capitalize} with id = " + params[:id].to_s + " not found." }
       else
-      	return { Success: false, Message: "#{primary_label} with " + node_model.unique_property + " = \"" + 
+      	return { success: false, message: "#{primary_label.capitalize} with " + node_model.unique_property + " = \"" + 
       	  params[:unique_property] + "\" not found." }
       end
     end
-	return { Success: true, Id: result }
+	return { success: true, id: result }
   end
   
   def write_relationship(id, relation, direction, params, params_key, tx)
@@ -231,7 +233,7 @@ class ModelRepository
 	  if params_element != nil
 	    params_element.each do |node|
 	      write_relation_result = write_relationship_to_node(id, relation, direction, node, tx)
-	      if !write_relation_result[:Success]
+	      if !write_relation_result[:success]
 	      	return write_relation_result
 	      end
 	    end
@@ -239,20 +241,20 @@ class ModelRepository
 	elsif number_of == :one_or_zero
 	  if params_element != nil
 	    write_relation_result = write_relationship_to_node(id, relation, direction, params_element, tx)
-	    if !write_relation_result[:Success]
+	    if !write_relation_result[:success]
 	      return write_relation_result
 	    end
 	  end
 	elsif number_of == :one
 	  if params_element == nil
-	    return { Message: "#{primary_label} must have #{params_key}.", Success: false }
+	    return { message: "#{primary_label.capitalize} must have #{params_key}.", success: false }
 	  end
 	  write_relation_result = write_relationship_to_node(id, relation, direction, params_element, tx)
-	  if !write_relation_result[:Success]
+	  if !write_relation_result[:success]
 	    return write_relation_result
 	  end
 	end
-	return { Success: true }
+	return { success: true }
   end
   
   def delete_relationships(id, relation, direction, tx)
@@ -280,7 +282,7 @@ class ModelRepository
 		
 		START #{target_start}
 		MATCH (other_source)-[r:#{relationship_name}]->#{target_match}
-		RETURN Id(other_source) AS Id
+		RETURN Id(other_source) AS id
 
 		", parameters, tx
 		)
@@ -288,7 +290,7 @@ class ModelRepository
 	  existing = CypherTools.execute_query_into_hash_array("
 		
 		MATCH (other_source)-[r:#{relationship_name}]->#{target_match}
-		RETURN Id(other_source) AS Id
+		RETURN Id(other_source) AS id
 
 		", parameters, tx
 		)
@@ -302,7 +304,7 @@ class ModelRepository
 		
 		START #{source_start}
 		MATCH #{source_match}-[r:#{relationship_name}]->(other_target)
-		RETURN Id(other_target) AS Id
+		RETURN Id(other_target) AS id
 
 		", parameters, tx
 		)
@@ -310,7 +312,7 @@ class ModelRepository
 	  existing = CypherTools.execute_query_into_hash_array("
 		
 		MATCH #{source_match}-[r:#{relationship_name}]->(other_target)
-		RETURN Id(other_target) AS Id
+		RETURN Id(other_target) AS id
 
 		", parameters, tx
 		)
@@ -327,8 +329,8 @@ class ModelRepository
       parameters[:source_id] = id
       source_match = "(source)"
       source_start = "source=node({source_id})"
-      if params_element.has_key?("Id")
-        parameters[:target_id] = params_element["Id"]
+      if params_element.has_key?("id")
+        parameters[:target_id] = params_element["id"]
         target_match = "(target:" + other_node_model.label.to_s + ")"
         target_start = "target=node({target_id})"
       else
@@ -342,8 +344,8 @@ class ModelRepository
       parameters[:target_id] = id
       target_match = "(target)"
       target_start = "target=node({target_id})"
-      if params_element.has_key?("Id")
-        parameters[:source_id] = params_element["Id"]
+      if params_element.has_key?("id")
+        parameters[:source_id] = params_element["id"]
         source_match = "(source:" + other_node_model.label.to_s + ")"
         source_start = "source=node({source_id})"
       else
@@ -358,20 +360,20 @@ class ModelRepository
 	  if params_element.has_key?(property) && params_element[property] != nil
 	    parameters[property] = params_element[property]
 	  else
-	  	return { Message: "Cannot add #{relationship_name} connection without specifying #{property}.", Success: false }
+	  	return { message: "Cannot add #{relationship_name} connection without specifying #{property}.", success: false }
 	  end
 	end
 
 	if relation.target_number == :one || relation.target_number == :one_or_zero
       if has_existing_target(source_start, source_match, relationship_name, parameters)
-	  	return { Success: false, Message: "Cannot assign multiple " + relation.name_to_source.to_s.pluralize +
-	  		" to " + relation.source_label.to_s + " Id " + parameters[:source_id].to_s + "." }
+	  	return { success: false, message: "Cannot assign multiple " + relation.name_to_source.to_s.pluralize +
+	  		" to " + relation.source_label.to_s + " with id = " + parameters[:source_id].to_s + "." }
 	  end
 	end
 	if relation.source_number == :one || relation.source_number == :one_or_zero
       if has_existing_source(target_start, target_match, relationship_name, parameters)
-	  	return { Success: false, Message: "Cannot assign multiple " + relation.name_to_target.to_s.pluralize +
-	  		" to " + relation.target_label.to_s + " Id " + parameters[:target_id].to_s + "." }
+	  	return { success: false, message: "Cannot assign multiple " + relation.name_to_target.to_s.pluralize +
+	  		" to " + relation.target_label.to_s + " with id = " + parameters[:target_id].to_s + "." }
 	  end
 	end
 
@@ -398,7 +400,7 @@ class ModelRepository
 	  #{start_string}
       #{match_string}
 	  CREATE (source)-[r:#{relationship_name} #{property_write_string}]->(target)
-	  RETURN Id(source), Id(target)
+	  RETURN id(source), id(target)
 	    
 	  ", parameters, tx
 	)
@@ -406,34 +408,34 @@ class ModelRepository
 	  #We couldn't find a matching node to create the relationship.
 	  if direction == :outgoing
 	    if parameters.has_key?(:target_id)
-	      return { Success: false, Message: "Could not create #{relationship_name} relationship: " + other_node_model.label.to_s + " with Id=" + parameters[:target_id].to_s + " not found." }
+	      return { success: false, message: "Could not create #{relationship_name} relationship: " + other_node_model.label.to_s + " with Id=" + parameters[:target_id].to_s + " not found." }
 	    else
-	      return { Success: false, Message: "Could not create #{relationship_name} relationship: " + other_node_model.label.to_s + " \"" + parameters[:target_property].to_s + "\" not found." }
+	      return { success: false, message: "Could not create #{relationship_name} relationship: " + other_node_model.label.to_s + " \"" + parameters[:target_property].to_s + "\" not found." }
 	    end
       else
 	    if parameters.has_key?(:source_id)
-	      return { Success: false, Message: "Could not create #{relationship_name} relationship: " + other_node_model.label.to_s + " with Id=" + parameters[:source_id].to_s + " not found." }
+	      return { success: false, message: "Could not create #{relationship_name} relationship: " + other_node_model.label.to_s + " with Id=" + parameters[:source_id].to_s + " not found." }
 	    else
-	      return { Success: false, Message: "Could not create #{relationship_name} relationship: " + other_node_model.label.to_s + " \"" + parameters[:source_property].to_s + "\" not found." }
+	      return { success: false, message: "Could not create #{relationship_name} relationship: " + other_node_model.label.to_s + " \"" + parameters[:source_property].to_s + "\" not found." }
 	    end
 	  end
 	elsif result.length > 1
 	  #Somehow or other we found multiple matching nodes. This shouldn't ever happen, but... *shrug*
 	  if direction == :outgoing
 	    if parameters.has_key?(:target_id)
-	      return { Success: false, Message: "Could not create #{relationship_name} relationship: Multiple " + other_node_model.label.to_s.pluralize + " with Id=" + parameters[:target_id].to_s + " found." }
+	      return { success: false, message: "Could not create #{relationship_name} relationship: Multiple " + other_node_model.label.to_s.pluralize + " with Id=" + parameters[:target_id].to_s + " found." }
 	    else
-	      return { Success: false, Message: "Could not create #{relationship_name} relationship: Multiple " + other_node_model.label.to_s.pluralize + " \"" + parameters[:target_property].to_s + "\" found." }
+	      return { success: false, message: "Could not create #{relationship_name} relationship: Multiple " + other_node_model.label.to_s.pluralize + " \"" + parameters[:target_property].to_s + "\" found." }
 	    end
       else
 	    if parameters.has_key?(:source_id)
-	      return { Success: false, Message: "Could not create #{relationship_name} relationship: Multiple " + other_node_model.label.to_s.pluralize + " with Id=" + parameters[:source_id].to_s + " found." }
+	      return { success: false, message: "Could not create #{relationship_name} relationship: Multiple " + other_node_model.label.to_s.pluralize + " with Id=" + parameters[:source_id].to_s + " found." }
 	    else
-	      return { Success: false, Message: "Could not create #{relationship_name} relationship: Multiple " + other_node_model.label.to_s.pluralize + " \"" + parameters[:source_property].to_s + "\" found." }
+	      return { success: false, message: "Could not create #{relationship_name} relationship: Multiple " + other_node_model.label.to_s.pluralize + " \"" + parameters[:source_property].to_s + "\" found." }
 	    end
 	  end
 	end
-    return { Success: true }
+    return { success: true }
   end
   
   #identifier may be either the numeric id of the node, or the unique property of the term.
@@ -452,20 +454,20 @@ class ModelRepository
   	  primary_node = read_primary_node(identifier, identifier_is_id, cas_user)
   	rescue Exception => e
   	  if e.to_s == "One of the ids given was invalid."
-  	  	return { Message: "#{primary_label} not found.", Success: false }
+  	  	return { message: "#{primary_label} not found.", success: false }
   	  else
-  	  	return { Message: "Error retrieving #{primary_label}: " + e.to_s + " Please review data service logs.", Success: false }
+  	  	return { message: "Error retrieving #{primary_label}: " + e.to_s + " Please review data service logs.", success: false }
   	  end
   	end
 	
 	if primary_node == nil
 	  LogTime.info "Not found, exiting."
-	  return { Message: "#{primary_label} not found.", Success: false }
+	  return { message: "#{primary_label} not found.", success: false }
 	end
 	
-	id = primary_node["Id"]
+	id = primary_node["id"]
 	
-	output = { @primary_label => primary_node, :Success => true }
+	output = { @primary_label => primary_node, :success => true }
 	
 	model = GraphModel.instance.nodes[@primary_label]
 	model.outgoing.each do |relation|
@@ -487,8 +489,8 @@ class ModelRepository
 	    START n=node({id})
 		MATCH (n:" + node_model.label + ")
 		RETURN
-		n.CreatedDate,
-		n.ModifiedDate,
+		n.created_date,
+		n.modified_date,
 		" + node_model.property_string("n", cas_user != nil),
 		{ :id => identifier.to_i },
 		nil)
@@ -498,8 +500,8 @@ class ModelRepository
 		MATCH (n:" + node_model.label + ")
 		WHERE n." + node_model.unique_property + " = {unique_property}
 		RETURN
-		n.CreatedDate,
-		n.ModifiedDate,
+		n.created_date,
+		n.modified_date,
 		" + node_model.property_string("n", cas_user != nil),
 		{ :unique_property => identifier },
 		nil)
@@ -532,8 +534,8 @@ class ModelRepository
 	  START primary=node({id})
 	  MATCH #{match_string}
 	  RETURN
-	  other.CreatedDate,
-	  other.ModifiedDate,
+	  other.created_date,
+	  other.modified_date,
 	  " + other_node_model.property_string("other") + relation.property_string("r"),
 	  { :id => id },
 	  nil)
@@ -576,17 +578,17 @@ class ModelRepository
   	model = GraphModel.instance.nodes[@primary_label]
   	model.outgoing.each do |relation|
   	  if relations_block_deletion(id, relation, :outgoing)
-  	  	return { Success: false, Message: "Cannot delete a " + @primary_label.to_s + " that has " +
+  	  	return { success: false, message: "Cannot delete a " + @primary_label.to_s + " that has " +
   	      relation.name_to_source.to_s + "." }
   	  end
   	end
   	model.incoming.each do |relation|
   	  if relations_block_deletion(id, relation, :incoming)
-  	  	return { Success: false, Message: "Cannot delete a " + @primary_label.to_s + " that has " +
+  	  	return { success: false, message: "Cannot delete a " + @primary_label.to_s + " that has " +
   	      relation.name_to_target.to_s + "." }
   	  end
   	end
-    return { Success: true }
+    return { success: true }
   end
 
   def delete_with_transaction(id, tx)
@@ -602,7 +604,7 @@ class ModelRepository
       DELETE n
       ", { :id => id }, tx)
 
-    return { Success: true }
+    return { success: true }
   end
 
   def delete(params, cas_user)
@@ -626,7 +628,7 @@ class ModelRepository
   	  	", { :identifier => identifier.to_i }, tx
   	  )
   	  if id == nil
-  	  	return { Success: false, Message: "Could not find #{primary_label} with Id = " + 
+  	  	return { success: false, message: "Could not find #{primary_label} with id = " + 
   	  	  identifier.to_s + "." }
   	  end
   	else
@@ -637,19 +639,19 @@ class ModelRepository
   	  	", { :unique_property => identifier }, tx
   	  )
   	  if id == nil
-  	  	return { Success: false, Message: "Could not find #{primary_label} with " + 
+  	  	return { success: false, message: "Could not find #{primary_label} with " + 
   	  	  node_model.unique_property + " = \"" + identifier + "\"." }
   	  end
   	end
 
     validate_result = validate_delete(id)
-    if !validate_result[:Success]
+    if !validate_result[:success]
       return validate_result
     end
 
 	begin
       result = delete_with_transaction(id, tx)
-	  if result[:Success]
+	  if result[:success]
 	    CypherTools.commit_transaction(tx)
 	  else
 	    CypherTools.rollback_transaction(tx)
@@ -659,13 +661,13 @@ class ModelRepository
 	  raise(e)
 	end
 
-	if result[:Success]
+	if result[:success]
 	  search_result = ElasticSearchIO.instance.delete_node(@primary_label, id)
-	  if !search_result[:Success]
-	  	result[:Searchable] = false
-	  	result[:SearchableMessage] = search_result[:Message]
+	  if !search_result[:success]
+	  	result[:searchable] = false
+	  	result[:searchable_message] = search_result[:message]
 	  else
-	  	result[:Searchable] = true
+	  	result[:searchable] = true
 	  end
 	end
 	return result

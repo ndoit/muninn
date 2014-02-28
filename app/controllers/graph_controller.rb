@@ -18,7 +18,7 @@ class GraphController < ApplicationController
   	
   	LogTime.info "Writing to database."
     output = repository.write(params, true, session[:cas_user])
-  	if output[:Success]
+  	if output[:success]
   	  render :status => 200, :json => output
   	else
       render :status => 500, :json => output
@@ -31,7 +31,7 @@ class GraphController < ApplicationController
   	
   	LogTime.info "Writing to database."
     output = repository.write(params, false, session[:cas_user])
-  	if output[:Success]
+  	if output[:success]
   	  render :status => 200, :json => output
   	else
         render :status => 500, :json => output
@@ -46,7 +46,7 @@ class GraphController < ApplicationController
     output = repository.read(params, session[:cas_user])
 	
     LogTime.debug "Rendering output."
-	  if output[:Success]
+	  if output[:success]
       render :status => 200, :json => output
 	  else
       render :status => 500, :json => output
@@ -61,7 +61,7 @@ class GraphController < ApplicationController
     output = repository.delete(params, session[:cas_user])
 	
     LogTime.debug "Rendering output."
-  	if output[:Success]
+  	if output[:success]
         render :status => 200, :json => output
   	else
         render :status => 500, :json => output
@@ -72,12 +72,12 @@ class GraphController < ApplicationController
   	if params.has_key?(:query_string)
   	  query_string = params[:query_string]
   	else
-      render :status => 500, :json => { Success: false, Message: "Enter a query string." }
+      render :status => 500, :json => { success: false, message: "Enter a query string." }
       return
     end
 
     output = ElasticSearchIO.instance.search(URI.escape(query_string), @primary_label)
-  	if output[:Success]
+  	if output[:success]
   	  render :status => 200, :json => output
   	else
         render :status => 500, :json => output
@@ -92,7 +92,7 @@ class GraphController < ApplicationController
     output = ElasticSearchIO.instance.search(nil, @primary_label)
   
     LogTime.debug "Rendering output."
-    if output[:Success]
+    if output[:success]
         render :status => 200, :json => output
     else
         render :status => 500, :json => output

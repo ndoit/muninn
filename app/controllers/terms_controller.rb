@@ -1,7 +1,7 @@
 class TermsController < GraphController
 
   def initialize()
-    @primary_label = :Term
+    @primary_label = :term
   end
 
   def get_model_repository
@@ -10,7 +10,7 @@ class TermsController < GraphController
 
   def history
     if !Packager.is_integer(params[:id])
-      render :status => 500, :json => { Message: "Invalid id.", Success: false }
+      render :status => 500, :json => { message: "Invalid id.", success: false }
     end
 
     LogTime.info "Instantiating ModelRepository."
@@ -20,7 +20,7 @@ class TermsController < GraphController
     output = repository.history(params[:id].to_i, session[:cas_user])
 
     LogTime.debug "Rendering output."
-    if output[:Success]
+    if output[:success]
       render :status => 200, :json => output
     else
       render :status => 500, :json => output

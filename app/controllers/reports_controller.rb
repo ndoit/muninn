@@ -1,6 +1,6 @@
 class ReportsController < GraphController
 
   def initialize()
-    @primary_label = :Report
+    @primary_label = :report
   end
 end

@@ -6,7 +6,7 @@ class SearchController < ApplicationController
 
   def rebuild
   	output = ElasticSearchIO.instance.rebuild_search_index
-	if output[:Success]
+	if output[:success]
 	  render :status => 200, :json => output
 	else
       render :status => 500, :json => output
@@ -17,12 +17,12 @@ class SearchController < ApplicationController
   	if params.has_key?(:query_string)
   	  query_string = params[:query_string]
   	else
-      render :status => 500, :json => { Success: false, Message: "Enter a query string." }
+      render :status => 500, :json => { success: false, message: "Enter a query string." }
       return
     end
 
     output = ElasticSearchIO.instance.search(URI.escape(query_string), nil)
-	if output[:Success]
+	if output[:success]
 	  render :status => 200, :json => output
 	else
       render :status => 500, :json => output

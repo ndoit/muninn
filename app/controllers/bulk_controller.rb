@@ -6,13 +6,13 @@ class BulkController < ApplicationController
 
   def wipe
     if params[:confirmation] != "NoSeriouslyIMeanIt"
-      render :status => 500, :json => { Success: false,
-        Message: "Confirmation is required. To irreversibly wipe the entire database, " +
+      render :status => 500, :json => { success: false,
+        message: "Confirmation is required. To irreversibly wipe the entire database, " +
         "send a delete request to the URL: bulk/NoSeriouslyIMeanIt"}
       return
     end
     result = BulkLoader.new.wipe
-    if result[:Success]
+    if result[:success]
       render :status => 200, :json => result
     else
       render :status => 500, :json => result
@@ -22,7 +22,7 @@ class BulkController < ApplicationController
   def load
   	json_body = params["_json"]
     result = BulkLoader.new.load(json_body)
-    if result[:Success]
+    if result[:success]
       render :status => 200, :json => result
     else
       render :status => 500, :json => result
@@ -31,7 +31,7 @@ class BulkController < ApplicationController
 
   def export
     result = BulkLoader.new.export
-    if result[:Success]
+    if result[:success]
       render :status => 200, :json => result
     else
       render :status => 500, :json => result
