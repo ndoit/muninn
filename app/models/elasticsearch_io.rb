@@ -1,6 +1,10 @@
 require "singleton"
 require "net/http"
 require "json"
+#require "typhoeus" #recommended in elasticsearch gem docs to improve performance
+require "elasticsearch"
+
+#docs: http://rubydoc.info/gems/elasticsearch-api/
 
 class ElasticSearchIO
   include Singleton
@@ -122,8 +126,20 @@ class ElasticSearchIO
     return update_nodes_with_data(label, node_data)
   end
 
-  def search(query_string, label = nil)
+  def advanced_search(query_json, label = nil)
+    client = Elasticsearch::Client.new log: true
+    if query_json == nil
+      return { success: false, message: "You must include a query." }
+    end
+    if label != nil
+      output = client.get index: 'node', type: label, body: query_json
+    else
+      output = client.get index: 'node', body: query_json
+    end
+    return { success: true, result: output }
+  end
 
+  def search(query_string, label = nil)
     if label == nil
       if query_string == nil
         return { success: false, message: "Specify a result type or a search term." }

@@ -22,11 +22,28 @@ class SearchController < ApplicationController
     end
 
     output = ElasticSearchIO.instance.search(URI.escape(query_string), nil)
-	if output[:success]
-	  render :status => 200, :json => output
-	else
+	  if output[:success]
+	    render :status => 200, :json => output
+	  else
       render :status => 500, :json => output
-	end
+	  end
+  end
+  
+  def advanced_search
+    LogTime.info params.to_s
+    if params.has_key?("search")
+      query_body = params["search"]
+    else
+      render :status => 500, :json => { success: false, message: "You must include a query body." }
+      return
+    end
+
+    output = ElasticSearchIO.instance.advanced_search(query_body, nil)
+    if output[:success]
+      render :status => 200, :json => output
+    else
+      render :status => 500, :json => output
+    end
   end
   
 end

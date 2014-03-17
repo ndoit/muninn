@@ -38,7 +38,8 @@ BIPortalDataService::Application.routes.draw do
 
   create_resources 'reports'
 
-  get 'search/:query_string', to: 'search#search'
+  get 'search/basic/:query_string', to: 'search#search'
+  get 'search/advanced', to: 'search#advanced_search'
   post 'search/rebuild', to: 'search#rebuild'
   
 end

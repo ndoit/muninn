@@ -28,6 +28,8 @@ gem 'jbuilder', '~> 1.2'
 gem 'neography'
 gem 'rubycas-client'
 gem 'figaro'
+gem 'elasticsearch'
+#gem 'typhoeus'
 #gem 'unicorn'
 
 # Use ActiveModel has_secure_password
