@@ -26,8 +26,9 @@ BIPortalDataService::Application.routes.draw do
   
   create_resources 'terms'
   get '/terms/history/id/:id', to: 'terms#history'
-  get '/terms/:unique_property/:version_number', to: 'terms#show'
   get '/terms/id/:id/:version_number', to: 'terms#show'
+  get '/terms/:unique_property/:version_number', to: 'terms#show'
+
 
   #create_resources 'proposed_terms'
   #put '/proposed_terms/publish/:id', to: 'proposed_terms#publish'

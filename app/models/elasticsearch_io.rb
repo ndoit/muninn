@@ -132,9 +132,9 @@ class ElasticSearchIO
       return { success: false, message: "You must include a query." }
     end
     if label != nil
-      output = client.get index: 'node', type: label, body: query_json
+      output = client.search index: 'node', type: label, body: query_json
     else
-      output = client.get index: 'node', body: query_json
+      output = client.search index: 'node', body: query_json
     end
     return { success: true, result: output }
   end

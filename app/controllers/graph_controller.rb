@@ -1,10 +1,14 @@
 require "elasticsearch_io.rb"
+require "net/http"
+require "json"
+require "open-uri"
 
 class GraphController < ApplicationController
   #We don't maintain sessions, so we don't need to worry about cross-site request forgery.
   skip_before_action :verify_authenticity_token
-  #before_filter CASClient::Frameworks::Rails::GatewayFilter, :only => :show
+  #before_filter CASClient::Frameworks::Rails::GatewayFilter, :only => :authenticated_show
   #before_filter CASClient::Frameworks::Rails::Filter, :except => [ :show, :search ]
+  #before_filter :authenticate!, :only => :authenticated_show
 
   attr_accessor :primary_label
 
@@ -44,6 +48,7 @@ class GraphController < ApplicationController
 	
     LogTime.debug "Processing read request."
     output = repository.read(params, session[:cas_user])
+    output[:cas_user] = session[:cas_user]
 	
     LogTime.debug "Rendering output."
 	  if output[:success]
