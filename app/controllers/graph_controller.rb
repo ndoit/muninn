@@ -50,8 +50,9 @@ class GraphController < ApplicationController
     output = repository.read(params, session[:cas_user])
     #output[:cas_user] = session[:cas_user]
 
-    output[:ticket] = params.clone
-    output[:cas_user] = "foo"
+    if params.has_key?(:ticket)
+      output[:cas_result] = CASClient::Frameworks::Rails::Filter.client.validate_service_ticket(params[:ticket])
+    end
 	
     LogTime.debug "Rendering output."
 	  if output[:success]
