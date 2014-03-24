@@ -51,7 +51,7 @@ class GraphController < ApplicationController
     #output[:cas_user] = session[:cas_user]
 
     if params.has_key?(:ticket)
-      output[:cas_result] = CASClient::Frameworks::Rails::Filter.client.validate_service_ticket(params[:ticket])
+      output[:cas_result] = CASClient::Frameworks::Rails::Filter.client.validate_service_ticket(params[:ticket]).to_s
     end
 	
     LogTime.debug "Rendering output."
