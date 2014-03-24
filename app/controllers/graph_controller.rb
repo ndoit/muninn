@@ -51,6 +51,7 @@ class GraphController < ApplicationController
     #output[:cas_user] = session[:cas_user]
 
     output[:ticket] = params.clone
+    output[:cas_user] = "foo"
 	
     LogTime.debug "Rendering output."
 	  if output[:success]
