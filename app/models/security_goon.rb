@@ -9,12 +9,9 @@ class SecurityGoon
   	end
   	proxy_ticket = CASClient::ProxyTicket.new(params[:ticket],params[:service])
     validate_result = CASClient::Frameworks::Rails::Filter.client.validate_proxy_ticket(proxy_ticket)
-    if !validate_result.has_key?("success")
+    if !validate_result.success
       return nil
     end
-    if !validate_result["success"]
-      return nil
-    end
-    return validate_result["user"]
+    return validate_result.user
   end
 end
