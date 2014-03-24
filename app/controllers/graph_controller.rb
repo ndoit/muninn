@@ -50,9 +50,7 @@ class GraphController < ApplicationController
     output = repository.read(params, session[:cas_user])
     #output[:cas_user] = session[:cas_user]
 
-    if params[:ticket]
-      output[:ticket] = params[:ticket]
-    end
+    output[:ticket] = params.clone
 	
     LogTime.debug "Rendering output."
 	  if output[:success]
