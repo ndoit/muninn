@@ -50,10 +50,7 @@ class GraphController < ApplicationController
     output = repository.read(params, session[:cas_user])
     #output[:cas_user] = session[:cas_user]
 
-    if params.has_key?(:ticket) && params.has_key?(:service)
-      proxy_ticket = CASClient::ProxyTicket.new(params[:ticket],params[:service])
-      output[:cas_proxy_result] = CASClient::Frameworks::Rails::Filter.client.validate_proxy_ticket(proxy_ticket)
-    end
+    output[:validated_user] = SecurityGoon.who_is_this(params)
 	
     LogTime.debug "Rendering output."
 	  if output[:success]
