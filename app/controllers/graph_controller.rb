@@ -52,7 +52,7 @@ class GraphController < ApplicationController
 
     if params.has_key?(:ticket) && params.has_key?(:service)
       proxy_ticket = CASClient::ProxyTicket.new(params[:ticket],params[:service])
-      output[:cas_result] = CASClient::Frameworks::Rails::Filter.client.validate_proxy_ticket(proxy_ticket)
+      output[:cas_proxy_result] = CASClient::Frameworks::Rails::Filter.client.validate_proxy_ticket(proxy_ticket)
     end
 	
     LogTime.debug "Rendering output."
