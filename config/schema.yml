@@ -10,7 +10,7 @@ nodes:
             - data_availability
     office:
         unique_property: name
-    person:
+    user:
         unique_property: net_id
         other_properties:
             - first_name
@@ -20,6 +20,12 @@ nodes:
         other_properties:
             - uri
             - description
+    security_role:
+        unique_property: name
+    security_regime:
+        unique_property: name
+        other_properties:
+            - integrated_with_bi_portal
 relationships:
     HAS_STAKE_IN:
         source_label: office
@@ -32,5 +38,15 @@ relationships:
         source_label: report
         target_label: term
     REPRESENTS_FOR:
-        source_label: person
+        source_label: user
         target_label: office
+    CAN_VIEW:
+        source_label: security_role
+        target_label: report
+    IS_FROM:
+        source_label: security_role
+        target_label: security_regime
+        target_number: one
+    HAS_ROLE:
+        source_label: user
+        target_label: security_role

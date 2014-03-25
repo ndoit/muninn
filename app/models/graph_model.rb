@@ -183,11 +183,21 @@ class GraphModel
   	    :source_label => yaml_data["relationships"][name]["source_label"].to_sym,
   	    :target_label => yaml_data["relationships"][name]["target_label"].to_sym
   	  }
-  	  optional_parameters = [ "properties", "source_number", "target_number", "name_to_source", "name_to_target"]
+  	  optional_parameters = [
+        { :name => "properties", :is_symbol => false },
+        { :name => "source_number", :is_symbol => true },
+        { :name => "target_number", :is_symbol => true },
+        { :name => "name_to_source", :is_symbol => false },
+        { :name => "name_to_target", :is_symbol => false }
+      ]
   	  optional_parameters.each do |optional_parameter|
-        if yaml_data["relationships"][name].has_key?(optional_parameter)
-          LogTime.info("Adding optional parameter: " + optional_parameter)
-          parameters[optional_parameter.to_sym] = yaml_data["relationships"][name][optional_parameter]
+        if yaml_data["relationships"][name].has_key?(optional_parameter[:name])
+          LogTime.info("Adding optional parameter: " + optional_parameter[:name])
+          if optional_parameter[:is_symbol]
+            parameters[optional_parameter[:name].to_sym] = yaml_data["relationships"][name][optional_parameter[:name]].to_sym
+          else
+            parameters[optional_parameter[:name].to_sym] = yaml_data["relationships"][name][optional_parameter[:name]]
+          end
         end
       end
       LogTime.info("Storing relationship: " + name)
