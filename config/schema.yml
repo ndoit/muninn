@@ -25,7 +25,7 @@ nodes:
     security_regime:
         unique_property: name
         other_properties:
-            - integrated_with_bi_portal
+            - integrated_with_portal
 relationships:
     HAS_STAKE_IN:
         source_label: office

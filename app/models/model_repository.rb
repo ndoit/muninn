@@ -44,6 +44,7 @@ class ModelRepository
   end
   
   def write_with_transaction(params, create_required, tx)
+  	LogTime.info("write_with_transaction invoked: create_required = #{create_required.to_s}, params = #{params.to_s}")
     id = nil
     primary_model = GraphModel.instance.nodes[@primary_label]
 
@@ -73,7 +74,7 @@ class ModelRepository
       end
 	end
 
-	relationship_result = write_relationships(id, params, tx)
+	relationship_result = write_relationships(id, params, create_required, tx)
 	if !relationship_result[:success]
 	  return relationship_result
 	end
@@ -81,11 +82,11 @@ class ModelRepository
 	return { id: id, success: true }
   end
 
-  def write_relationships(id, params, tx)
+  def write_relationships(id, params, create_required, tx)
   	LogTime.info("Writing relationships for node id=#{id.to_s}.")
     primary_model = GraphModel.instance.nodes[@primary_label]
 	primary_model.outgoing.each do |relation|
-	  if params[:CreateRequired] || !relation.immutable #Immutable relationships can be created but not modified.
+	  if create_required || !relation.immutable #Immutable relationships can be created but not modified.
 	    params_key = relation.name_to_source
 		is_required = relation.target_number == :one
 	    if params.has_key?(params_key)
@@ -93,13 +94,13 @@ class ModelRepository
 		  if !write_result[:success]
 		    return write_result
 		  end
-	    elsif is_required && params[:CreateRequired]
+	    elsif is_required
 	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
 	    end
 	  end
 	end
 	primary_model.incoming.each do |relation|
-	  if params[:CreateRequired] || !relation.immutable #Immutable relationships can be created but not modified.
+	  if create_required || !relation.immutable #Immutable relationships can be created but not modified.
 	    params_key = relation.name_to_target
 		is_required = relation.source_number == :one
 	    if params.has_key?(params_key)
@@ -107,7 +108,7 @@ class ModelRepository
 		  if !write_result[:success]
 		    return write_result
 		  end
-	    elsif is_required && params[:CreateRequired]
+	    elsif is_required
 	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
 	    end
 	  end
@@ -298,7 +299,7 @@ class ModelRepository
 	return (existing.length > 0)
   end
 
-  def has_existing_target(source_start, source_match, relationship_name, parameters)
+  def has_existing_target(source_start, source_match, relationship_name, parameters, tx)
   	if source_start
 	  existing = CypherTools.execute_query_into_hash_array("
 		
@@ -365,13 +366,13 @@ class ModelRepository
 	end
 
 	if relation.target_number == :one || relation.target_number == :one_or_zero
-      if has_existing_target(source_start, source_match, relationship_name, parameters)
+      if has_existing_target(source_start, source_match, relationship_name, parameters, tx)
 	  	return { success: false, message: "Cannot assign multiple " + relation.name_to_source.to_s.pluralize +
 	  		" to " + relation.source_label.to_s + " with id = " + parameters[:source_id].to_s + "." }
 	  end
 	end
 	if relation.source_number == :one || relation.source_number == :one_or_zero
-      if has_existing_source(target_start, target_match, relationship_name, parameters)
+      if has_existing_source(target_start, target_match, relationship_name, parameters, tx)
 	  	return { success: false, message: "Cannot assign multiple " + relation.name_to_target.to_s.pluralize +
 	  		" to " + relation.target_label.to_s + " with id = " + parameters[:target_id].to_s + "." }
 	  end
