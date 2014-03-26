@@ -22,6 +22,8 @@ nodes:
             - description
     security_role:
         unique_property: name
+        other_properties:
+            - is_public
     security_regime:
         unique_property: name
         other_properties:
