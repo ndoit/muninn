@@ -43,6 +43,9 @@ class GraphController < ApplicationController
   end
   
   def show
+    LogTime.info "Playing with databases."
+    EventLogger.log_event
+    
   	LogTime.info "Instantiating ModelRepository."
 	  repository = get_model_repository
 	

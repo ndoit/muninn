@@ -29,7 +29,9 @@ gem 'neography'
 gem 'rubycas-client'
 gem 'figaro'
 gem 'elasticsearch'
-#gem 'typhoeus'
+gem 'sqlite3'
+gem 'activerecord'
+gem 'mysql2'
 #gem 'unicorn'
 
 # Use ActiveModel has_secure_password

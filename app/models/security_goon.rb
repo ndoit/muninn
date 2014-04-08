@@ -1,6 +1,3 @@
-require "net/http"
-require "json"
-require "open-uri"
 
 class SecurityGoon
   def self.who_is_this(params)
@@ -9,6 +6,7 @@ class SecurityGoon
   	end
   	proxy_ticket = CASClient::ProxyTicket.new(params[:ticket],params[:service])
     validate_result = CASClient::Frameworks::Rails::Filter.client.validate_proxy_ticket(proxy_ticket)
+    LogTime.info(validate_result.to_s)
     if !validate_result.success
       return nil
     end
