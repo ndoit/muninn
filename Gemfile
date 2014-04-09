@@ -31,7 +31,8 @@ gem 'figaro'
 gem 'elasticsearch'
 gem 'sqlite3'
 gem 'activerecord'
-gem 'mysql2'
+#gem 'mysql2'
+gem 'httparty'
 #gem 'unicorn'
 
 # Use ActiveModel has_secure_password

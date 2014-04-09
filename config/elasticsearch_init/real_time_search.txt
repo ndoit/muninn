@@ -1,0 +1,82 @@
+[{
+   "verb": "PUT",
+   "uri": "/term",
+   "body": {
+      "settings": {
+         "analysis": {
+            "filter": {
+               "nGram_filter": {
+                  "type": "nGram",
+                  "min_gram": 2,
+                  "max_gram": 20,
+                  "token_chars": [
+                     "letter",
+                     "digit",
+                     "punctuation",
+                     "symbol"
+                  ]
+               }
+            },
+            "analyzer": {
+               "nGram_analyzer": {
+               
+                  "type": "custom",
+                  "tokenizer": "whitespace",
+                  "filter": [
+                     "lowercase",
+                     "asciifolding",
+                     "nGram_filter"
+                  ]
+            
+               },
+               "whitespace_analyzer": {
+                  "type": "custom",
+                  "tokenizer": "whitespace",
+                  "filter": [
+                     "lowercase",
+                     "asciifolding"
+                  ]
+               }
+            }
+         }
+      },
+      "mappings": {
+         "term": {
+            "_all": {
+               "index_analyzer": "nGram_analyzer",
+               "search_analyzer": "whitespace_analyzer"
+            },
+            "properties": {
+               "name": {
+                  "type": "string",
+                  "index": "not_analyzed"
+               },
+               "definition": {
+                  "type": "string",
+                  "index": "not_analyzed"
+                },
+               "source_system": {
+                  "type": "string",
+                  "index": "no",
+                  "include_in_all": false
+               },
+               "possible_values": {
+                  "type": "string",
+                  "include_in_all": false
+               },
+               "notes": {
+                  "type": "string"
+                 },
+               "data_sensitivity": {
+                  "type": "string",
+                  "include_in_all": false
+               },
+                "data_availability": {
+                  "type": "string",
+                  "include_in_all": false
+               }
+            }
+         }
+      }
+   }
+}]

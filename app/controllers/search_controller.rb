@@ -6,11 +6,11 @@ class SearchController < ApplicationController
 
   def rebuild
   	output = ElasticSearchIO.instance.rebuild_search_index
-	if output[:success]
-	  render :status => 200, :json => output
-	else
+	  if output[:success]
+	    render :status => 200, :json => output
+	  else
       render :status => 500, :json => output
-	end
+	  end
   end
   
   def search

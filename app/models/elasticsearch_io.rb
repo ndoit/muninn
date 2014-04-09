@@ -3,6 +3,8 @@ require "net/http"
 require "json"
 #require "typhoeus" #recommended in elasticsearch gem docs to improve performance
 require "elasticsearch"
+require "pathname"
+require "httparty"
 
 #docs: http://rubydoc.info/gems/elasticsearch-api/
 
@@ -36,12 +38,50 @@ class ElasticSearchIO
     return { success: true }
   end
 
-  def rebuild_search_index
-    GraphModel.instance.nodes.values.each do |node_model|
-      delete_result = delete_all_nodes(node_model.label)
-      if !delete_result[:success]
-        return delete_result
+  def run_initialization_tasks
+    init_files = Dir.glob("config/elasticsearch_init/*")
+    LogTime.info("Searching config/elasticsearch_init/, #{init_files.length} files found.")
+    responses = []
+    init_files.each do |file|
+      file_hash = JSON.parse(IO.read(file))
+      LogTime.info("File #{file} contents: #{file_hash.to_s}")
+      request_count = 0
+      file_hash.each do |request_json|
+        request_count = request_count + 1
+        if request_json["verb"] == "GET"
+          response = HTTParty.get("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
+        elsif request_json["verb"] == "POST"
+          response = HTTParty.post("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
+        elsif request_json["verb"] == "PUT"
+          response = HTTParty.put("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
+        elsif request_json["verb"] == "DELETE"
+          response = HTTParty.delete("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
+        else
+          return { success: false, message: "Unknown HTTP verb: " + request_json["verb"].to_s }
+        end
+        if response.code != 200
+          return { success: false, message: "Request #{request_count} from file #{file} returned code #{response.code}: #{response.body}" }
+        else
+          responses << response
+        end
       end
+    end
+    return { success: true, responses: responses }
+  end
+
+  def rebuild_search_index
+    LogTime.info("Starting rebuild: Destroying the world.")
+    delete_result = HTTParty.delete("http://localhost:9200")
+    if delete_result.code != 200
+      return { success: false, message: "Delete command failed with code #{delete_result.code}: #{delete_result.body}" }
+    end
+    LogTime.info("Running initialization tasks.")
+    init_result = run_initialization_tasks
+    if !init_result[:success]
+      return init_result
+    end
+    GraphModel.instance.nodes.values.each do |node_model|
+      LogTime.info("Re-creating search elements of type: #{node_model}")
       update_result = update_all_nodes(node_model.label)
       if !update_result[:success]
         return update_result
