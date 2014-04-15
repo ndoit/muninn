@@ -14,7 +14,7 @@ class SearchController < ApplicationController
   end
 
   def reinitialize
-    output = ElasticSearchIO.instance.run_initialization_tasks
+    output = ElasticSearchIO.instance.wipe_and_initialize
     if output[:success]
       render :status => 200, :json => output
     else

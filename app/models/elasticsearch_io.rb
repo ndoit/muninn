@@ -69,8 +69,8 @@ class ElasticSearchIO
     return { success: true, responses: responses }
   end
 
-  def rebuild_search_index
-    LogTime.info("Starting rebuild: Destroying the world.")
+  def wipe_and_initialize
+    LogTime.info("Destroying the world.")
     delete_result = HTTParty.delete("http://localhost:9200/_all")
     if delete_result.code != 200
       return { success: false, message: "Delete command failed with code #{delete_result.code}: #{delete_result.body}" }
@@ -79,6 +79,14 @@ class ElasticSearchIO
     init_result = run_initialization_tasks
     if !init_result[:success]
       return init_result
+    end
+    return { success: true }
+  end
+
+  def rebuild_search_index
+    wipe_result = wipe_and_initialize
+    if !wipe_result[:success]
+      return wipe_result
     end
     GraphModel.instance.nodes.values.each do |node_model|
       LogTime.info("Re-creating search elements of type: #{node_model}")
