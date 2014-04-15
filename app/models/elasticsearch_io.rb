@@ -71,7 +71,7 @@ class ElasticSearchIO
 
   def rebuild_search_index
     LogTime.info("Starting rebuild: Destroying the world.")
-    delete_result = HTTParty.delete("http://localhost:9200")
+    delete_result = HTTParty.delete("http://localhost:9200/_all")
     if delete_result.code != 200
       return { success: false, message: "Delete command failed with code #{delete_result.code}: #{delete_result.body}" }
     end
