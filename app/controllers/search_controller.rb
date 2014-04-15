@@ -12,6 +12,15 @@ class SearchController < ApplicationController
       render :status => 500, :json => output
 	  end
   end
+
+  def reinitialize
+    output = ElasticSearchIO.instance.run_initialization_tasks
+    if output[:success]
+      render :status => 200, :json => output
+    else
+      render :status => 500, :json => output
+    end
+  end
   
   def search
   	if params.has_key?(:query_string)
