@@ -1,0 +1,65 @@
+[{
+   "verb": "PUT",
+   "uri": "/term",
+   "body": {
+     "settings":{
+       "analysis":{
+         "analyzer":{
+           "autocomplete":{
+             "type":"custom",
+             "tokenizer":"standard",
+             "filter":[ "standard", "lowercase", "stop", "kstem", "ngram" ] 
+           }
+         },
+         "filter":{
+           "ngram":{
+             "type":"ngram",
+             "min_gram":2,
+             "max_gram":15
+           }
+         }
+       }
+     } ,
+      "mappings": {
+         "term": {
+            "properties": {
+               "name": {
+                  "type": "string",
+                  "fields":{
+                      "raw":{
+                      "type" :"string",
+                      "index" :"not_analyzed"
+                  }
+               }
+              },
+               "definition": {
+                  "type": "string",
+                  "index": "not_analyzed",
+                 "include_in_all": false
+                   },
+               "source_system": {
+                  "type": "string",
+                  "index": "no",
+                  "include_in_all": false
+               },
+               "possible_values": {
+                  "type": "string",
+                  "include_in_all": false
+               },
+               "notes": {
+                  "type": "string",
+                  "include_in_all": false
+               },
+               "data_sensitivity": {
+                  "type": "string",
+                  "include_in_all": false
+               },
+                "data_availability": {
+                  "type": "string",
+                  "include_in_all": false
+               }
+            }
+         }
+      }
+   }
+}]
