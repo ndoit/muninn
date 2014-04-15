@@ -63,7 +63,7 @@
       }
    }
 },{
-   "verb": "PUT",
+   "verb": "POST",
    "uri": "terms/term/1",
    "body": {
       "definition": "Contains the level of an academic degree",
