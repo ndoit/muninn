@@ -62,4 +62,16 @@
          }
       }
    }
+},{
+   "verb": "PUT",
+   "uri": "terms/term/1",
+   "body": {
+      "definition": "Contains the level of an academic degree",
+      "source_system": null,
+      "possible_values": "? Less than Associate\n? Associate\n? Bachelor\n? Master\n? Professional Doctorate\n? Research Doctorate\n? Other\n? Unknown",
+      "notes": "N/A",
+      "data_sensitivity": "N/A",
+      "data_availability": "N/A",
+      "name": "Academic Degree Level"
+   }
 }]
