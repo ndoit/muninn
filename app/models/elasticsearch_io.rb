@@ -54,16 +54,16 @@ class ElasticSearchIO
         headers = { "Content-Type" => "application/json; charset=utf-8" }
 
         if request_json["verb"] == "GET"
-          LogTime.info("Executing GET with body #{request_json["body"]}.")
+          LogTime.info("Executing GET with body #{body}.")
           response = HTTParty.get("http://localhost:9200/" + request_json["uri"], { body: body, headers: headers  })
         elsif request_json["verb"] == "POST"
-          LogTime.info("Executing POST with body #{request_json["body"]}.")
+          LogTime.info("Executing POST with body #{body}.")
           response = HTTParty.post("http://localhost:9200/" + request_json["uri"], { body: body, headers: headers  })
         elsif request_json["verb"] == "PUT"
-          LogTime.info("Executing PUT with body #{request_json["body"]}.")
+          LogTime.info("Executing PUT with body #{body}.")
           response = HTTParty.put("http://localhost:9200/" + request_json["uri"], { body: body, headers: headers  })
         elsif request_json["verb"] == "DELETE"
-          LogTime.info("Executing DELETE with body #{request_json["body"]}.")
+          LogTime.info("Executing DELETE with body #{body}.")
           response = HTTParty.delete("http://localhost:9200/" + request_json["uri"], { body: body, headers: headers  })
         else
           return { success: false, message: "Unknown HTTP verb: " + request_json["verb"].to_s }
