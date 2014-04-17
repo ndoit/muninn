@@ -49,18 +49,22 @@ class ElasticSearchIO
       request_count = 0
       file_hash.each do |request_json|
         request_count = request_count + 1
+
+        body = request_json["body"].to_s
+        headers = { "Content-Type" => "application/json; charset=utf-8" }
+
         if request_json["verb"] == "GET"
           LogTime.info("Executing GET with body #{request_json["body"]}.")
-          response = HTTParty.get("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
+          response = HTTParty.get("http://localhost:9200/" + request_json["uri"], { body: body, headers: headers  })
         elsif request_json["verb"] == "POST"
           LogTime.info("Executing POST with body #{request_json["body"]}.")
-          response = HTTParty.post("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
+          response = HTTParty.post("http://localhost:9200/" + request_json["uri"], { body: body, headers: headers  })
         elsif request_json["verb"] == "PUT"
           LogTime.info("Executing PUT with body #{request_json["body"]}.")
-          response = HTTParty.put("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
+          response = HTTParty.put("http://localhost:9200/" + request_json["uri"], { body: body, headers: headers  })
         elsif request_json["verb"] == "DELETE"
           LogTime.info("Executing DELETE with body #{request_json["body"]}.")
-          response = HTTParty.delete("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
+          response = HTTParty.delete("http://localhost:9200/" + request_json["uri"], { body: body, headers: headers  })
         else
           return { success: false, message: "Unknown HTTP verb: " + request_json["verb"].to_s }
         end
