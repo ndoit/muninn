@@ -50,7 +50,7 @@ class ElasticSearchIO
       file_hash.each do |request_json|
         request_count = request_count + 1
 
-        body = request_json["body"].to_s
+        body = request_json["body"].to_json
         headers = { "Content-Type" => "application/json; charset=utf-8" }
 
         if request_json["verb"] == "GET"
