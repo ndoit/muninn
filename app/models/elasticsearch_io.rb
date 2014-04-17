@@ -45,6 +45,7 @@ class ElasticSearchIO
     init_files.each do |file|
       file_hash = JSON.parse(IO.read(file))
       LogTime.info("File #{file} contents: #{file_hash.to_s}")
+      LogTime.info("#{file_hash.length} requests to process.")
       request_count = 0
       file_hash.each do |request_json|
         request_count = request_count + 1
