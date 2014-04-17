@@ -49,12 +49,16 @@ class ElasticSearchIO
       file_hash.each do |request_json|
         request_count = request_count + 1
         if request_json["verb"] == "GET"
+          LogTime.info("Executing GET with body #{request_json["body"]}.")
           response = HTTParty.get("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
         elsif request_json["verb"] == "POST"
+          LogTime.info("Executing POST with body #{request_json["body"]}.")
           response = HTTParty.post("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
         elsif request_json["verb"] == "PUT"
+          LogTime.info("Executing PUT with body #{request_json["body"]}.")
           response = HTTParty.put("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
         elsif request_json["verb"] == "DELETE"
+          LogTime.info("Executing DELETE with body #{request_json["body"]}.")
           response = HTTParty.delete("http://localhost:9200/" + request_json["uri"], { body: request_json["body"] })
         else
           return { success: false, message: "Unknown HTTP verb: " + request_json["verb"].to_s }
@@ -62,6 +66,7 @@ class ElasticSearchIO
         if response.code != 200
           return { success: false, message: "Request #{request_count} from file #{file} returned code #{response.code}: #{response.body}" }
         else
+          LogTime.info("Received 200, successful.")
           responses << response
         end
       end
