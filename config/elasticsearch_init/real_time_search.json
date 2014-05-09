@@ -1,7 +1,6 @@
 [{
    "verb": "PUT",
-   "uri": "/term",
-   "body":  {
+   "uri": "/node",
       "settings": {
          "analysis": {
             "filter": {
@@ -18,8 +17,7 @@
                }
             },
             "analyzer": {
-               "nGram_analyzer": {
-               
+               "nGram_analyzer": {               
                   "type": "custom",
                   "tokenizer": "whitespace",
                   "filter": [
@@ -54,8 +52,9 @@
                    "raw":{
                    "type" :"string",
                    "index" :"not_analyzed",
-                    "include_in_all": true
-               }
+                  "include_in_all": true,
+                  "store": "yes"
+                   }
                }
                },
                "definition": {
@@ -65,7 +64,8 @@
                    "raw":{
                    "type" :"string",
                    "index" :"not_analyzed",
-                    "include_in_all": true
+                  "include_in_all": true,
+                  "store": "yes"    
                }
                }
                },
@@ -91,5 +91,4 @@
             }
          }
       }
-  }
-}]
+   }}]
