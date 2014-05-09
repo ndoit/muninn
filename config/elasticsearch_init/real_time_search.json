@@ -1,6 +1,6 @@
 [{
    "verb": "PUT",
-   "uri": "/node",
+   "uri": "/node/term",
       "settings": {
          "analysis": {
             "filter": {
