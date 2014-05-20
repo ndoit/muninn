@@ -13,7 +13,7 @@ class ElasticSearchIO
 
   def initialize
   end
-  
+
   def update_nodes_with_data(label, data)
     LogTime.info("Loading data: " + data.to_s)
     data.each do |node|
@@ -190,9 +190,9 @@ class ElasticSearchIO
       return { success: false, message: "You must include a query." }
     end
     if label != nil
-      output = client.search index: 'node', type: label, body: query_json
+      output = client.search index: 'terms', type: label, body: query_json #hard coded terms index needs to be paramater.
     else
-      output = client.search index: 'node', body: query_json
+      output = client.search index: 'terms', body: query_json #hard coded terms index needs to be paramater. 
     end
     return { success: true, result: output }
   end
