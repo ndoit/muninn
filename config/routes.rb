@@ -23,7 +23,7 @@ BIPortalDataService::Application.routes.draw do
   get '/bulk', to: 'bulk#export'
   post '/bulk', to: 'bulk#load'
   delete '/bulk/:confirmation', to: 'bulk#wipe'
-  
+
   create_resources 'terms'
   get '/terms/history/id/:id', to: 'terms#history'
   get '/terms/id/:id/:version_number', to: 'terms#show'
@@ -32,12 +32,16 @@ BIPortalDataService::Application.routes.draw do
 
   #create_resources 'proposed_terms'
   #put '/proposed_terms/publish/:id', to: 'proposed_terms#publish'
-  
+
   create_resources 'offices'
-  
+
   create_resources 'users'
 
   create_resources 'reports'
+
+  create_resources 'tables'
+
+  create_resources 'columns'
 
   create_resources 'security_roles'
 
@@ -47,5 +51,5 @@ BIPortalDataService::Application.routes.draw do
   get 'search/custom/query', to: 'search#advanced_search'
   post 'search/rebuild', to: 'search#rebuild'
   post 'search/reinitialize', to: 'search#reinitialize'
-  
+
 end

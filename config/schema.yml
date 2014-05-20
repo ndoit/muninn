@@ -29,6 +29,11 @@ nodes:
         other_properties:
             - integrated_with_portal
             - security_regime_uri
+    table:
+        unique_property: name
+    column:
+        unique_property: name
+
 relationships:
     HAS_STAKE_IN:
         source_label: office
@@ -53,3 +58,9 @@ relationships:
     HAS_ROLE:
         source_label: user
         target_label: security_role
+    CONTAINS:
+        source_label: table
+        target_label: column
+    CAN_VIEW:
+        source_label: security_role
+        target_label: column
