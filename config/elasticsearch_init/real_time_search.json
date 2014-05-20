@@ -1,7 +1,7 @@
 [{
    "verb": "PUT",
-   "uri": "/node/term",
-      "settings": {
+   "uri": "/terms",
+   "body": { "settings": {
          "analysis": {
             "filter": {
                "nGram_filter": {
@@ -39,6 +39,16 @@
          }
       },
       "mappings": {
+           "office": {
+            "properties": {
+               "id": {
+                  "type": "long"
+               },
+               "name": {
+                  "type": "string"
+               }
+            }
+            },         
          "term": {
             "_all": {
                "index_analyzer": "nGram_analyzer",
@@ -91,4 +101,5 @@
             }
          }
       }
-   }]
+   }
+}]

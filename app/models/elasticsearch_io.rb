@@ -20,12 +20,12 @@ class ElasticSearchIO
       id = node["id"]
       LogTime.info("Updating node: " + id.to_s)
 
-      uri = URI.parse("http://localhost:9200/node/#{label}/#{id}")
-      request = Net::HTTP::Post.new(uri.path)
+      uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/#{id}")
+      request = Net::HTTP::Put.new(uri.path)
       request.content_type = 'application/json'
       request.body = node.to_json
 
-      LogTime.info("Request created.")
+      LogTime.info("Request created with contents: #{node.to_json}.")
       response = Net::HTTP.start(uri.hostname, uri.port) do |http|
         http.request(request)
       end
@@ -112,7 +112,7 @@ class ElasticSearchIO
   def delete_all_nodes(label)
     LogTime.info("Delete all nodes of type: #{label}")
 
-    uri = URI.parse("http://localhost:9200/node/#{label}/")
+    uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/")
     request = Net::HTTP::Delete.new(uri.path)
 
     LogTime.info("Request created: #{uri.path}")
@@ -133,7 +133,7 @@ class ElasticSearchIO
   def delete_node(label, id)
     LogTime.info("Delete node " + id.to_s + " of type: #{label}")
 
-    uri = URI.parse("http://localhost:9200/node/#{label}/" + id.to_s)
+    uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/" + id.to_s)
     request = Net::HTTP::Delete.new(uri.path)
 
     LogTime.info("Request created.")
@@ -202,13 +202,13 @@ class ElasticSearchIO
       if query_string == nil
         return { success: false, message: "Specify a result type or a search term." }
       else
-        uri_string = "/node/_search?q=#{query_string}"
+        uri_string = "/#{label.to_s.pluralize}/_search?q=#{query_string}"
       end
     else
       if query_string == nil
-        uri_string = "/node/#{label}/_search"
+        uri_string = "/#{label.to_s.pluralize}/#{label}/_search"
       else
-        uri_string = "/node/#{label}/_search?q=#{query_string}"
+        uri_string = "/#{label.to_s.pluralize}/#{label}/_search?q=#{query_string}"
       end
     end
     LogTime.info("Querying: " + uri_string)
