@@ -78,7 +78,8 @@
                   "include_in_all": false
                },
                "notes": {
-                  "type": "string"
+                  "type": "string",
+                  "include_in_all": false
                  },
                "data_sensitivity": {
                   "type": "string",

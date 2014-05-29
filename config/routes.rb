@@ -10,7 +10,7 @@ BIPortalDataService::Application.routes.draw do
     post nodes, to: nodes + '#create'
 
     put nodes + '/:unique_property', to: nodes + '#update'
-    put nodes + '/id/:id', to: nodes + '#update'
+    put nodes + '/id/:id', to: nodes + '#update'  # NOT WORKING?
 
     delete nodes + '/:unique_property', to: nodes + '#destroy'
     delete nodes + '/id/:id', to: nodes + '#destroy'

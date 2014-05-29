@@ -20,7 +20,7 @@ class GraphController < ApplicationController
   	LogTime.info "Instantiating ModelRepository."
   	repository = get_model_repository
   	
-  	LogTime.info "Writing to database."
+  	LogTime.info "Writing to database creating node."
     output = repository.write(params, true, session[:cas_user])
   	if output[:success]
   	  render :status => 200, :json => output
@@ -72,9 +72,9 @@ class GraphController < ApplicationController
 	
     LogTime.debug "Rendering output."
   	if output[:success]
-        render :status => 200, :json => output
+        render :status => 200 ,:json => { success: true, message: "Sucessfully deleted the node" }
   	else
-        render :status => 500, :json => output
+        render :status => 500 ,:json => { success: false, message: "Node has not been deleted." }
   	end
   end
 

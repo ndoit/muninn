@@ -45,16 +45,22 @@ class ModelRepository
   
   def write_with_transaction(params, create_required, tx)
   	LogTime.info("write_with_transaction invoked: create_required = #{create_required.to_s}, params = #{params.to_s}")
-    id = nil
+  	id = nil
     primary_model = GraphModel.instance.nodes[@primary_label]
-
+    LogTime.info("primary node ********************* : #{primary_label}" + primary_model.unique_property  );
     if !params.has_key?(@primary_label)
-   	  if create_required
+    	 LogTime.info("No label? #{primary_label}.")
+    	 check_val =params[@primary_label].has_key?(primary_model.unique_property)
+   	  if create_required  
+   	  	LogTime.info("Cannot create without a #{primary_label} element.") 
   	    return { message: "Cannot create without a #{primary_label} element.", success: false }
+	  	    
   	  end
     elsif !params[@primary_label].has_key?(primary_model.unique_property) ||
   		params[@primary_label][primary_model.unique_property] == ""
+  	    LogTime.info("Cannot create with blank or nil  #{primary_label} element and " + primary_model.unique_property + " also  #{check_val}")
   	  return { message: primary_model.unique_property + " cannot be blank or nil.", success: false }
+
     end
 	
 	if create_required
@@ -163,12 +169,14 @@ class ModelRepository
   	  #However, we fetch the id to simplify the process of doing relationship updates - and to verify that
   	  #the primary node exists!
   	  if params[:id] != nil
+  	  	LogTime.info("\n\nBMR: Updating by id, which is #{params[:id]}")
   	  	result = CypherTools.execute_query_returning_scalar("
   	      START primary=node({id})
   	      MATCH (primary:#{primary_label})
   	      RETURN Id(primary)
   	      ", { :id => params[:id] }, tx)
   	  else
+  	  	LogTime.info("\n\nBMR: Updating by unique property, which is.. #{node_model.unique_property.to_s} ... value=#{params[:unique_property]}")
   	  	result = CypherTools.execute_query_returning_scalar("
   	      MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })
   	      RETURN Id(primary)

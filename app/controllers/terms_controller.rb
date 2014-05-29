@@ -8,6 +8,7 @@ class TermsController < GraphController
     return TermRepository.new
   end
 
+
   def history
     if !Packager.is_integer(params[:id])
       render :status => 500, :json => { message: "Invalid id.", success: false }
