@@ -47,10 +47,11 @@ class ModelRepository
   	LogTime.info("write_with_transaction invoked: create_required = #{create_required.to_s}, params = #{params.to_s}")
   	id = nil
     primary_model = GraphModel.instance.nodes[@primary_label]
-    LogTime.info("primary node ********************* : #{primary_label}" + primary_model.unique_property  );
+    LogTime.info("primary node ********************* : #{primary_label}  " + primary_model.unique_property );
     if !params.has_key?(@primary_label)
     	 LogTime.info("No label? #{primary_label}.")
-    	 check_val =params[@primary_label].has_key?(primary_model.unique_property)
+    	 #check_val =params[@primary_label].has_key?(primary_model.unique_property)
+    	  
    	  if create_required  
    	  	LogTime.info("Cannot create without a #{primary_label} element.") 
   	    return { message: "Cannot create without a #{primary_label} element.", success: false }
@@ -58,7 +59,7 @@ class ModelRepository
   	  end
     elsif !params[@primary_label].has_key?(primary_model.unique_property) ||
   		params[@primary_label][primary_model.unique_property] == ""
-  	    LogTime.info("Cannot create with blank or nil  #{primary_label} element and " + primary_model.unique_property + " also  #{check_val}")
+  	    #LogTime.info("Cannot create with blank or nil  #{primary_label} element and " + primary_model.unique_property);
   	  return { message: primary_model.unique_property + " cannot be blank or nil.", success: false }
 
     end
