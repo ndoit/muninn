@@ -16,7 +16,7 @@ class NodeModel
     end
     return false
   end
-  
+
   def initialize(parameters)
   	#We do not allow properties to be named Id or UniqueProperty, as we use those internally.
   	if parameters_contain_property(parameters, "id")
@@ -32,7 +32,7 @@ class NodeModel
 	@outgoing = []
 	@incoming = []
   end
-  
+
   def property_string(node_reference, include_sensitive = false)
     output = "ID(#{node_reference}) AS id"
 	@properties.each do |property|
@@ -45,7 +45,7 @@ class NodeModel
 	end
 	return output
   end
-  
+
   def property_write_string(node_reference, include_sensitive = false)
     output = nil
 	if node_reference == nil || node_reference == ""
@@ -72,7 +72,7 @@ end
 class RelationshipModel
   attr_accessor :source_label, :relation_name, :target_label
   attr_accessor :properties, :source_number, :target_number, :name_to_source, :name_to_target, :immutable
-  
+
   def initialize(parameters)
 	@source_label = parameters[:source_label]
     @relation_name = parameters[:relation_name]
@@ -100,7 +100,7 @@ class RelationshipModel
 	end
 	@immutable = parameters.has_key?(:immutable) ? parameters[:immutable] : false
   end
-  
+
   def property_string(relationship_reference, show_secure = false)
     output = ""
 	@properties.each do |property|
@@ -113,7 +113,7 @@ class RelationshipModel
 	end
 	return output
   end
-  
+
   def property_write_string(relationship_reference)
     if @properties.length == 0
 	  return ""
@@ -158,7 +158,7 @@ class GraphModel
   end
 
   def define_model
-  	yaml_data = YAML.load_file("config/schema.yml")
+  	yaml_data = YAML.load_file("#{Rails.root}/config/schema.yml")
   	LogTime.info(yaml_data.to_s)
   	node_labels = yaml_data["nodes"].keys
   	node_labels.each do |label|
