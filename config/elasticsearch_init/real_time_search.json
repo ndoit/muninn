@@ -1,95 +1,260 @@
-[{
-   "verb": "PUT",
-   "uri": "/terms",
-   "body": { "settings": {
-         "analysis": {
-            "filter": {
-               "nGram_filter": {
-                  "type": "nGram",
-                  "min_gram": 2,
-                  "max_gram": 20,
-                  "token_chars": [
-                     "letter",
-                     "digit",
-                     "punctuation",
-                     "symbol"
-                  ]
-               }
+[
+    {
+        "verb": "PUT",
+        "uri": "/terms",
+        "body": {
+            "settings": {
+                "analysis": {
+                    "filter": {
+                        "nGram_filter": {
+                            "type": "nGram",
+                            "min_gram": 2,
+                            "max_gram": 20,
+                            "token_chars": [
+                                "letter",
+                                "digit",
+                                "punctuation",
+                                "symbol"
+                            ]
+                        }
+                    },
+                    "analyzer": {
+                        "nGram_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding",
+                                "nGram_filter"
+                            ]
+                        },
+                        "whitespace_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding"
+                            ]
+                        }
+                    }
+                }
             },
-            "analyzer": {
-               "nGram_analyzer": {
-                  "type": "custom",
-                  "tokenizer": "whitespace",
-                  "filter": [
-                     "lowercase",
-                     "asciifolding",
-                     "nGram_filter"
-                  ]
-
-               },
-               "whitespace_analyzer": {
-                  "type": "custom",
-                  "tokenizer": "whitespace",
-                  "filter": [
-                     "lowercase",
-                     "asciifolding"
-                  ]
-               }
+            "mappings": {
+                "term": {
+                    "_all": {
+                        "index_analyzer": "nGram_analyzer",
+                        "search_analyzer": "whitespace_analyzer"
+                    },
+                    "properties": {
+                        "name": {
+                            "type": "multi_field",
+                            "fields": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
+                            }
+                        },
+                        "definition": {
+                            "type": "multi_field",
+                            "fields": {
+                                "definition": {
+                                    "type": "string"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
+                            }
+                        },
+                        "source_system": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "possible_values": {
+                            "type": "string",
+                            "include_in_all": false
+                        },
+                        "notes": {
+                            "type": "string",
+                            "include_in_all": false
+                        },
+                        "data_sensitivity": {
+                            "type": "string",
+                            "include_in_all": false
+                        },
+                        "data_availability": {
+                            "type": "string",
+                            "include_in_all": false
+                        }
+                    }
+                }
             }
-         }
-      },
-      "mappings": {
-         "term": {
-            "_all": {
-               "index_analyzer": "nGram_analyzer",
-               "search_analyzer": "whitespace_analyzer"
+        }
+    },
+    {
+        "verb": "PUT",
+        "uri": "/offices",
+        "body": {
+            "settings": {
+                "analysis": {
+                    "filter": {
+                        "nGram_filter": {
+                            "type": "nGram",
+                            "min_gram": 2,
+                            "max_gram": 20,
+                            "token_chars": [
+                                "letter",
+                                "digit",
+                                "punctuation",
+                                "symbol"
+                            ]
+                        }
+                    },
+                    "analyzer": {
+                        "nGram_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding",
+                                "nGram_filter"
+                            ]
+                        },
+                        "whitespace_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding"
+                            ]
+                        }
+                    }
+                }
             },
-    "properties": {
-               "name": {
-                  "type": "multi_field",
-                  "fields":{
-                       "name": {"type": "string"},
-                   "raw":{
-                   "type" :"string",
-                   "index" :"not_analyzed",
-                  "include_in_all": true,
-                  "store": "yes"
-                   }
-               }
-               },
-               "definition": {
-                  "type": "multi_field",
-                  "fields":{
-                       "definition": {"type": "string"},
-                   "raw":{
-                   "type" :"string",
-                   "index" :"not_analyzed",
-                  "include_in_all": true,
-                  "store": "yes"
-               }
-               }
-               },
-               "source_system": {
-                  "type": "string",
-                  "index": "not_analyzed"
-               },
-               "possible_values": {
-                  "type": "string",
-                  "include_in_all": false
-               },
-               "notes": {
-                  "type": "string"
-                 },
-               "data_sensitivity": {
-                  "type": "string",
-                  "include_in_all": false
-               },
-                "data_availability": {
-                  "type": "string",
-                  "include_in_all": false
-               }
+            "mappings": {
+                "office": {
+                    "_all": {
+                        "index_analyzer": "nGram_analyzer",
+                        "search_analyzer": "whitespace_analyzer"
+                    },
+                    "properties": {
+                        "id": {
+                            "type": "long"
+                        },
+                        "name": {
+                            "type": "multi_field",
+                            "fields": {
+                                "name": {
+                                    "type": "string",
+                                    "store": "yes"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
+                            }
+                        }
+                    }
+                }
             }
-         }
-      }
-   }
-}]
+        }
+    },
+    {
+        "verb": "PUT",
+        "uri": "/reports",
+        "body": {
+            "settings": {
+                "analysis": {
+                    "filter": {
+                        "nGram_filter": {
+                            "type": "nGram",
+                            "min_gram": 2,
+                            "max_gram": 20,
+                            "token_chars": [
+                                "letter",
+                                "digit",
+                                "punctuation",
+                                "symbol"
+                            ]
+                        }
+                    },
+                    "analyzer": {
+                        "nGram_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding",
+                                "nGram_filter"
+                            ]
+                        },
+                        "whitespace_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding"
+                            ]
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "report": {
+                    "_all": {
+                        "index_analyzer": "nGram_analyzer",
+                        "search_analyzer": "whitespace_analyzer"
+                    },
+                    "properties": {
+                        "description": {
+                            "type": "multi_field",
+                            "fields": {
+                                "definition": {
+                                    "type": "string",
+                                    "store": "yes"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
+                            }
+                        },
+                        "id": {
+                            "type": "long"
+                        },
+                        "name": {
+                            "type": "multi_field",
+                            "fields": {
+                                "name": {
+                                    "type": "string",
+                                    "store": "yes"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+]
