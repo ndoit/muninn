@@ -206,7 +206,7 @@ class ElasticSearchIO
       end
     else
       if query_string == nil
-        uri_string = "/#{label.to_s.pluralize}/#{label}/_search"
+        uri_string  = "/#{label.to_s.pluralize}/#{label}/_search?size=9999" #SMM - added to bypass default sixe
       else
         uri_string = "/#{label.to_s.pluralize}/#{label}/_search?q=#{query_string}"
       end
