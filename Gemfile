@@ -34,7 +34,6 @@ gem 'elasticsearch'
 #gem 'activerecord'
 #gem 'mysql2'
 gem 'httparty'
-#gem 'unicorn'
 
 # Use ActiveModel has_secure_password
 # gem 'bcrypt-ruby', '~> 3.1.2'
