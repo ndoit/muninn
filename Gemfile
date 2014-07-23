@@ -34,16 +34,18 @@ gem 'elasticsearch'
 #gem 'activerecord'
 #gem 'mysql2'
 gem 'httparty'
-#gem 'unicorn'
 
 # Use ActiveModel has_secure_password
 # gem 'bcrypt-ruby', '~> 3.1.2'
 
 # Use unicorn as the app server
-# gem 'unicorn'
+gem 'unicorn'
+gem 'puma'
 
 # Use Capistrano for deployment
 # gem 'capistrano', group: :development
 
 # Use debugger
 # gem 'debugger', group: [:development, :test]
+
+gem 'dotenv'
