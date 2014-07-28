@@ -78,6 +78,8 @@ class BulkLoader
     primary_node = read_result[node_model.label.to_sym].clone
     primary_node.delete("created_date")
     primary_node.delete("modified_date")
+    primary_node.delete("created_by")
+    primary_node.delete("modified_by")
     primary_node.delete("id")
 
     output[node_model.label.to_sym] = primary_node
