@@ -184,15 +184,15 @@ class ElasticSearchIO
     return update_nodes_with_data(label, node_data)
   end
 
-  def advanced_search(query_json, label = nil)
+  def advanced_search(query_json, index = nil)
     client = Elasticsearch::Client.new log: true
     if query_json == nil
       return { success: false, message: "You must include a query." }
     end
-    if label != nil
-      output = client.search index: 'terms', type: label, body: query_json #hard coded terms index needs to be paramater.
+    if index != nil
+      output = client.search index: index, type: label, body: query_json #hard coded terms index needs to be paramater. #SMM added index as the node type
     else
-      output = client.search index: 'terms', body: query_json #hard coded terms index needs to be paramater. 
+      output = client.search  body: query_json #hard coded terms index needs to be paramater. #SMM removed the index as a parameter for common search
     end
     return { success: true, result: output }
   end

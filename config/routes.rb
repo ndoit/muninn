@@ -48,6 +48,7 @@ BIPortalDataService::Application.routes.draw do
   create_resources 'security_regimes'
 
   get 'search/:query_string', to: 'search#search'
+  get 'search/custom/query/:index', to: 'search#advanced_search'
   get 'search/custom/query', to: 'search#advanced_search'
   post 'search/rebuild', to: 'search#rebuild'
   post 'search/reinitialize', to: 'search#reinitialize'
