@@ -20,7 +20,7 @@ class ModelRepository
     tx = CypherTools.start_transaction
     result = nil
 	begin
-	  result = write_with_transaction(params, create_required, tx)
+	  result = write_with_transaction(params, create_required, cas_user, tx)
 	  if result[:success]
 	    CypherTools.commit_transaction(tx)
 	  else
@@ -43,7 +43,7 @@ class ModelRepository
 	return result
   end
   
-  def write_with_transaction(params, create_required, tx)
+  def write_with_transaction(params, create_required, cas_user, tx)
   	LogTime.info("write_with_transaction invoked: create_required = #{create_required.to_s}, params = #{params.to_s}")
   	id = nil
     primary_model = GraphModel.instance.nodes[@primary_label]
@@ -66,14 +66,14 @@ class ModelRepository
 	
 	if create_required
       LogTime.info("Creating new #{primary_label}.")
-	  create_result = create_primary_node(params, tx)
+	  create_result = create_primary_node(params, cas_user, tx)
 	  if !create_result[:success]
 	  	return create_result
 	  end
 	  id = create_result[:id]
 	else
       LogTime.info("Updating primary node.")
-      update_result = update_primary_node(params, tx)
+      update_result = update_primary_node(params, cas_user, tx)
       if !update_result[:success]
       	return update_result
       else
@@ -124,7 +124,7 @@ class ModelRepository
 	return { success: true }
   end
   
-  def create_primary_node(params, tx)
+  def create_primary_node(params, cas_user, tx)
   	node_contents = params[@primary_label]
     node_model = GraphModel.instance.nodes[@primary_label]
     now = Time.now.utc
@@ -150,8 +150,8 @@ class ModelRepository
 	  " + node_model.property_write_string("primary") + "
 	RETURN
 	  primary.created_date = {now} AS created_new,
-	  Id(primary) AS id
-	
+	  Id(primary) AS id	
+
 	", parameters, tx)[0]
 	
 	if !create_result["created_new"]
@@ -162,7 +162,7 @@ class ModelRepository
 	return { id: create_result["id"], success: true }
   end
   
-  def update_primary_node(params, tx)
+  def update_primary_node(params, cas_user, tx)
     node_model = GraphModel.instance.nodes[@primary_label]
 
   	if !params.has_key?(@primary_label)
@@ -194,6 +194,7 @@ class ModelRepository
 		  MATCH (primary:#{primary_label})
 		  SET
 		    primary.modified_date = {now},
+		    primary.modified_by = #{cas_user = nil ? "default" : cas_user.to_s}
 		    " + node_model.property_write_string("primary") + "
 		  RETURN Id(primary)"
 	  else
@@ -202,6 +203,7 @@ class ModelRepository
 		  MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })
 		  SET
 		    primary.modified_date = {now},
+		    primary.modified_by = #{cas_user = nil ? "default"  : cas_user.to_s},
 		    " + node_model.property_write_string("primary") + "
 		  RETURN Id(primary)"
       end
@@ -501,6 +503,8 @@ class ModelRepository
 		RETURN
 		n.created_date,
 		n.modified_date,
+		n.created_by,
+		n.modified_by,
 		" + node_model.property_string("n", cas_user != nil),
 		{ :id => identifier.to_i },
 		nil)
@@ -512,6 +516,8 @@ class ModelRepository
 		RETURN
 		n.created_date,
 		n.modified_date,
+		n.created_by,
+		n.modified_by,
 		" + node_model.property_string("n", cas_user != nil),
 		{ :unique_property => identifier },
 		nil)
@@ -546,6 +552,8 @@ class ModelRepository
 	  RETURN
 	  other.created_date,
 	  other.modified_date,
+	  other.created_by,
+	  other.modified_by,
 	  " + other_node_model.property_string("other") + relation.property_string("r"),
 	  { :id => id },
 	  nil)
