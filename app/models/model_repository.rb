@@ -129,7 +129,7 @@ class ModelRepository
     node_model = GraphModel.instance.nodes[@primary_label]
     now = Time.now.utc
 	
-	parameters = { :now => now }
+	parameters = { :now => now, :user => "#{cas_user = nil ? "default" : cas_user.to_s}" }
 	node_model.properties.each do |property|
 	  if node_contents.has_key?(property) && node_contents[property] != nil
 	    parameters[property] = node_contents[property]
@@ -147,6 +147,8 @@ class ModelRepository
 	ON CREATE SET
 	  primary.created_date = {now},
 	  primary.modified_date = {now},
+	  primary.created_by = {user},
+	  primary.modified_by = {user},
 	  " + node_model.property_write_string("primary") + "
 	RETURN
 	  primary.created_date = {now} AS created_new,
@@ -175,7 +177,7 @@ class ModelRepository
   	      START primary=node({id})
   	      MATCH (primary:#{primary_label})
   	      RETURN Id(primary)
-  	      ", { :id => params[:id] }, tx)
+  	      ", { :id => params[:id].to_i }, tx)
   	  else
   	  	LogTime.info("\n\nBMR: Updating by unique property, which is.. #{node_model.unique_property.to_s} ... value=#{params[:unique_property]}")
   	  	result = CypherTools.execute_query_returning_scalar("
@@ -188,22 +190,22 @@ class ModelRepository
 	  now = Time.now.utc
 		
 	  if params[:id] != nil
-		parameters = { :id => params[:id], :now => now }
+		parameters = { :id => params[:id].to_i, :now => now, :user => "#{cas_user = nil ? "default" : cas_user.to_s}" }
 		query_string = "
 		  START primary=node({id})
 		  MATCH (primary:#{primary_label})
 		  SET
 		    primary.modified_date = {now},
-		    primary.modified_by = #{cas_user = nil ? "default" : cas_user.to_s}
+		    primary.modified_by = {user},
 		    " + node_model.property_write_string("primary") + "
 		  RETURN Id(primary)"
 	  else
-		parameters = { :unique_property => params[:unique_property], :now => now }
+		parameters = { :unique_property => params[:unique_property], :now => now, :user => "#{cas_user = nil ? "default" : cas_user.to_s}" }
 		query_string = "
 		  MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })
 		  SET
 		    primary.modified_date = {now},
-		    primary.modified_by = #{cas_user = nil ? "default"  : cas_user.to_s},
+		    primary.modified_by = {user},
 		    " + node_model.property_write_string("primary") + "
 		  RETURN Id(primary)"
       end
