@@ -248,9 +248,13 @@
                                     "store": "yes"
                                 }
                             }
+                        },"description": {
+                            "type": "string",
+                            "index": "not_analyzed"
                         },
-                        "uri": {
-                            "type": "string"
+                        "report_type": {
+                            "type": "string",
+                            "include_in_all": false
                         }
                     }
                 }
