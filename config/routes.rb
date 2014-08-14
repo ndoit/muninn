@@ -35,17 +35,13 @@ BIPortalDataService::Application.routes.draw do
 
   create_resources 'offices'
 
-  create_resources 'users'
-
   create_resources 'reports'
 
-  create_resources 'tables'
+  create_resources 'domain_tags'
 
-  create_resources 'columns'
+  create_resources 'bus_process_tags'
 
   create_resources 'security_roles'
-
-  create_resources 'security_regimes'
 
   get 'search/:query_string', to: 'search#search'
   get 'search/custom/query/:index', to: 'search#advanced_search'
