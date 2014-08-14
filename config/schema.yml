@@ -10,31 +10,30 @@ nodes:
             - data_availability
     office:
         unique_property: name
-    user:
-        unique_property: net_id
-        other_properties:
-            - first_name
-            - last_name
     report:
         unique_property: name
         other_properties:
-            - uri
+            - datasource
+            - data_last_updated 
             - description
+            - embedJSON              
+            - report_type
+            - thumbnail_uri
+    domain_tag:
+        unique_property: name
+    bus_process_tag:
+      unique_property: name
     security_role:
         unique_property: name
         other_properties:
             - is_public
-    security_regime:
-        unique_property: name
-        other_properties:
-            - integrated_with_portal
-            - security_regime_uri
-    table:
-        unique_property: name
-    column:
-        unique_property: name
-
 relationships:
+    HAS_DOMAIN_TAG:
+        source_label: report
+        target_label: domain_tag
+    HAS_BUSPROCESS_TAG:
+        source_label: report
+        target_label: bus_process_tag
     HAS_STAKE_IN:
         source_label: office
         name_to_source: stakes
@@ -42,25 +41,12 @@ relationships:
         name_to_target: stakeholders
         properties:
             - stake
+    IS_OWNED_BY:
+        source_label: report
+        target_label: office
     CONTAINS:
         source_label: report
         target_label: term
-    REPRESENTS_FOR:
-        source_label: user
-        target_label: office
-    CAN_VIEW:
-        source_label: security_role
-        target_label: report
-    IS_FROM:
-        source_label: security_role
-        target_label: security_regime
-        target_number: one
-    HAS_ROLE:
-        source_label: user
+    REQUIRES:
+        source_label: report
         target_label: security_role
-    CONTAINS:
-        source_label: table
-        target_label: column
-    CAN_VIEW:
-        source_label: security_role
-        target_label: column
