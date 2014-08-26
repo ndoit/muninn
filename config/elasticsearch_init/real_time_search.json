@@ -216,10 +216,10 @@
                         "search_analyzer": "whitespace_analyzer"
                     },
                     "properties": {
-                        "description": {
+                        "datasource": {
                             "type": "multi_field",
                             "fields": {
-                                "definition": {
+                                "datasource": {
                                     "type": "string",
                                     "store": "yes"
                                 },
@@ -253,9 +253,20 @@
                             "index": "not_analyzed"
                         },
                         "report_type": {
-                            "type": "string",
-                            "include_in_all": false
-                        }
+                            "type": "multi_field",
+                            "fields": {
+                                "datasource": {
+                                    "type": "string",
+                                    "store": "yes"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
+                            }
+                        } 
                     }
                 }
             }
