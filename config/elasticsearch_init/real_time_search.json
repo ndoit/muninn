@@ -46,32 +46,35 @@
                         "search_analyzer": "whitespace_analyzer"
                     },
                     "properties": {
-                        "name": {
+                       "name": {
                             "type": "multi_field",
                             "fields": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "store": "yes"
                                 },
                                 "raw": {
                                     "type": "string",
                                     "index": "not_analyzed",
+                                    "analyzer": "simple",
                                     "include_in_all": true,
                                     "store": "yes"
                                 }
                             }
                         },
                         "definition": {
-                            "type": "multi_field",
-                            "fields": {
-                                "definition": {
-                                    "type": "string"
-                                },
-                                "raw": {
+                         "type": "multi_field",
+                         "fields": {
+                          "definition": {
                                     "type": "string",
-                                    "index": "not_analyzed",
-                                    "include_in_all": true,
                                     "store": "yes"
-                                }
+                            },
+                            "raw": {
+                                "type": "string",
+                                "index": "not_analyzed",
+                                 "include_in_all": true,
+                                "store": "yes"
+                            }
                             }
                         },
                         "source_system": {
@@ -93,7 +96,33 @@
                         "data_availability": {
                             "type": "string",
                             "include_in_all": false
+                        },
+                        "stakeholders": {
+
+                           "properties": {
+                             "id": {
+                                "type": "long"
+                             },                         
+                             "stake": {
+                                "type": "string"
+                             },
+                             "name": {
+                                 "type": "multi_field",
+                                 "fields": {
+                                  "name": {
+                                            "type": "string",
+                                            "store": "yes"
+                                    },
+                                    "raw": {
+                                        "type": "string",
+                                        "index": "not_analyzed",
+                                         "include_in_all": true,
+                                        "store": "yes"
+                                    }
+                                 }
+                           }    
                         }
+                      }
                     }
                 }
             }
@@ -149,7 +178,7 @@
                         "id": {
                             "type": "long"
                         },
-                        "name": {
+                       "name": {
                             "type": "multi_field",
                             "fields": {
                                 "name": {
@@ -159,6 +188,78 @@
                                 "raw": {
                                     "type": "string",
                                     "index": "not_analyzed",
+                                    "analyzer": "simple",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
+        "verb": "PUT",
+        "uri": "/security_roles",
+        "body": {
+            "settings": {
+                "analysis": {
+                    "filter": {
+                        "nGram_filter": {
+                            "type": "nGram",
+                            "min_gram": 2,
+                            "max_gram": 20,
+                            "token_chars": [
+                                "letter",
+                                "digit",
+                                "punctuation",
+                                "symbol"
+                            ]
+                        }
+                    },
+                    "analyzer": {
+                        "nGram_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding",
+                                "nGram_filter"
+                            ]
+                        },
+                        "whitespace_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding"
+                            ]
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "security_role": {
+                    "_all": {
+                        "index_analyzer": "nGram_analyzer",
+                        "search_analyzer": "whitespace_analyzer"
+                    },
+                    "properties": {
+                        "id": {
+                            "type": "long"
+                        },
+                       "name": {
+                            "type": "multi_field",
+                            "fields": {
+                                "name": {
+                                    "type": "string",
+                                    "store": "yes"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "analyzer": "simple",
                                     "include_in_all": true,
                                     "store": "yes"
                                 }
@@ -226,6 +327,7 @@
                                 "raw": {
                                     "type": "string",
                                     "index": "not_analyzed",
+                                    "analyzer": "simple",
                                     "include_in_all": true,
                                     "store": "yes"
                                 }
@@ -244,24 +346,39 @@
                                 "raw": {
                                     "type": "string",
                                     "index": "not_analyzed",
+                                    "analyzer": "simple",
                                     "include_in_all": true,
                                     "store": "yes"
                                 }
                             }
-                        },"description": {
-                            "type": "string",
-                            "index": "not_analyzed"
                         },
-                        "report_type": {
+                        "description": {
                             "type": "multi_field",
                             "fields": {
-                                "datasource": {
+                                "description": {
                                     "type": "string",
                                     "store": "yes"
                                 },
                                 "raw": {
                                     "type": "string",
                                     "index": "not_analyzed",
+                                    "analyzer": "simple",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
+                            }
+                        },
+                        "report_type": {
+                            "type": "multi_field",
+                            "fields": {
+                                "report_type": {
+                                    "type": "string",
+                                    "store": "yes"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "analyzer": "simple",
                                     "include_in_all": true,
                                     "store": "yes"
                                 }

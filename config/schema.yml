@@ -25,7 +25,8 @@ nodes:
       unique_property: name
     security_role:
         unique_property: name
-        other_properties:
+        other_properties: 
+            - role_eds_code
             - is_public
 relationships:
     HAS_DOMAIN_TAG:
