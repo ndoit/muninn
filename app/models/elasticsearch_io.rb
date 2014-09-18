@@ -18,6 +18,33 @@ class ElasticSearchIO
     LogTime.info("Loading data: " + data.to_s)
     data.each do |node|
       id = node["id"]
+
+      node_model = GraphModel.instance.nodes[label.to_sym]
+
+      LogTime.info("Outgoing relations: " + node_model.outgoing.to_s)
+      node_model.outgoing.each do |relation|
+        target_model = GraphModel.instance.nodes[relation.target_label]
+        related_nodes = CypherTools.execute_query_into_hash_array("
+
+          START n=node({id})
+          MATCH (n:" + label.to_s + ")-[r:" + relation.relation_name + "]->(other)
+          RETURN id(other) AS id, other." + target_model.unique_property + relation.property_string("r"),
+          { :id => id }, nil)
+        node[relation.name_to_source.pluralize] = related_nodes
+      end
+
+      LogTime.info("Incoming relations: " + node_model.incoming.to_s)
+      node_model.incoming.each do |relation|
+        source_model = GraphModel.instance.nodes[relation.source_label]
+        related_nodes = CypherTools.execute_query_into_hash_array("
+
+          START n=node({id})
+          MATCH (n:" + label.to_s + ")<-[r:" + relation.relation_name + "]-(other)
+          RETURN id(other) AS id, other." + source_model.unique_property + relation.property_string("r"),
+          { :id => id }, nil)
+        node[relation.name_to_target.pluralize] = related_nodes
+      end
+
       LogTime.info("Updating node: " + id.to_s)
 
       uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/#{id}")
