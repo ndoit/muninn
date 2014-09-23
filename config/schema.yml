@@ -28,6 +28,7 @@ nodes:
         other_properties: 
             - role_eds_code
             - is_public
+            - report_role
 relationships:
     HAS_DOMAIN_TAG:
         source_label: report

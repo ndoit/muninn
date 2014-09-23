@@ -122,8 +122,38 @@
                                  }
                            }    
                         }
-                      }
+                      },
+                      "offices": {
+
+                           "properties": {
+                             "id": {
+                                "type": "long"
+                             },                         
+                             "stake": {
+                                "type": "string"
+                             },
+                             "name": {
+                                 "type": "multi_field",
+                                 "fields": {
+                                  "name": {
+                                            "type": "string",
+                                            "store": "yes"
+                                    },
+                                    "raw": {
+                                        "type": "string",
+                                        "index": "not_analyzed",
+                                         "include_in_all": true,
+                                        "store": "yes"
+                                   }
+                                 
+                                }
+                            }    
+                        
+                        }
                     }
+                  
+                }  
+               
                 }
             }
         }
@@ -193,7 +223,35 @@
                                     "store": "yes"
                                 }
                             }
+                        },
+                        "stakes": {
+                           "properties": {
+                             "id": {
+                                "type": "long"
+                             },                         
+                             "stake": {
+                                "type": "string"
+                             },
+                             "name": {
+                                 "type": "multi_field",
+                                 "fields": {
+                                  "name": {
+                                            "type": "string",
+                                            "store": "yes"
+                                    },
+                                    "raw": {
+                                        "type": "string",
+                                        "index": "not_analyzed",
+                                         "include_in_all": true,
+                                        "store": "yes"
+                                   }
+                                 
+                                }
+                            }    
+                        
                         }
+                    }
+                  
                     }
                 }
             }
@@ -264,7 +322,58 @@
                                     "store": "yes"
                                 }
                             }
+                        },
+                      "reports": {
+
+                           "properties": {
+                             "id": {
+                                "type": "long"
+                             },
+                             "name": {
+                                 "type": "multi_field",
+                                 "fields": {
+                                  "name": {
+                                            "type": "string",
+                                            "store": "yes"
+                                    },
+                                    "raw": {
+                                        "type": "string",
+                                        "index": "not_analyzed",
+                                         "include_in_all": true,
+                                        "store": "yes"
+                                   }
+                                 
+                                }
+                            }    
+                        
                         }
+                    },
+                    "terms": {
+
+                           "properties": {
+                             "id": {
+                                "type": "long"
+                             },
+                             "name": {
+                                 "type": "multi_field",
+                                 "fields": {
+                                  "name": {
+                                            "type": "string",
+                                            "store": "yes"
+                                    },
+                                    "raw": {
+                                        "type": "string",
+                                        "index": "not_analyzed",
+                                         "include_in_all": true,
+                                        "store": "yes"
+                                   }
+                                 
+                                }
+                            }    
+                        
+                        }
+                    }
+                  
                     }
                 }
             }
@@ -383,7 +492,35 @@
                                     "store": "yes"
                                 }
                             }
-                        } 
+                        },
+                      "security_roles": {
+
+                           "properties": {
+                             "id": {
+                                "type": "long"
+                             },                         
+                             "stake": {
+                                "type": "string"
+                             },
+                             "name": {
+                                 "type": "multi_field",
+                                 "fields": {
+                                  "name": {
+                                            "type": "string",
+                                            "store": "yes"
+                                    },
+                                    "raw": {
+                                        "type": "string",
+                                        "index": "not_analyzed",
+                                         "include_in_all": true,
+                                        "store": "yes"
+                                   }
+                                 
+                                }
+                            }    
+                        
+                        }
+                    } 
                     }
                 }
             }
