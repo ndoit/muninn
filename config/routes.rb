@@ -29,6 +29,8 @@ BIPortalDataService::Application.routes.draw do
   get '/terms/id/:id/:version_number', to: 'terms#show'
   get '/terms/:unique_property/:version_number', to: 'terms#show'
 
+  get '/users/:netid/roles', to: 'users#user_roles'
+
 
   #create_resources 'proposed_terms'
   #put '/proposed_terms/publish/:id', to: 'proposed_terms#publish'
