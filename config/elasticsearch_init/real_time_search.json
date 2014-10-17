@@ -21,7 +21,7 @@
                     "analyzer": {
                         "nGram_analyzer": {
                             "type": "custom",
-                            "tokenizer": "nGram",
+                            "tokenizer": "whitespace",
                             "filter": [
                                 "lowercase",
                                 "asciifolding",
@@ -30,7 +30,7 @@
                         },
                         "whitespace_analyzer": {
                             "type": "custom",
-                            "tokenizer": "nGram",
+                            "tokenizer": "whitespace",
                             "filter": [
                                 "lowercase",
                                 "asciifolding"
@@ -101,40 +101,29 @@
 
                            "properties": {
                              "id": {
-                                "type": "long",
-                                 "include_in_all": false
+                                "type": "long"
                              },                         
                              "stake": {
-                                "type": "string",
-                                 "include_in_all": false
+                                "type": "string"
                              },
                              "name": {
-                                 "type": "string",
-                                 "include_in_all": false
+                                 "type": "multi_field",
+                                 "fields": {
+                                  "name": {
+                                            "type": "string",
+                                            "store": "yes"
+                                    },
+                                    "raw": {
+                                        "type": "string",
+                                        "index": "not_analyzed",
+                                         "include_in_all": true,
+                                        "store": "yes"
+                                    }
+                                 }
                            }    
                         }
-                      },
-                      "offices": {
-
-                           "properties": {
-                             "id": {
-                                "type": "long",
-                                 "include_in_all": false
-                             },                         
-                             "stake": {
-                                "type": "string",
-                                 "include_in_all": false
-                             },
-                             "name": {
-                                 "type": "string",
-                                 "include_in_all": false
-                            }    
-                        
-                        }
+                      }
                     }
-                  
-                }  
-               
                 }
             }
         }
@@ -204,23 +193,7 @@
                                     "store": "yes"
                                 }
                             }
-                        },
-                        "stakes": {
-                           "properties": {
-                             "id": {
-                                "type": "long"
-                             },                         
-                             "stake": {
-                                "type": "string"
-                             },
-                             "name": {
-                                 "type": "string",
-                                 "include_in_all": false
-                            }    
-                        
                         }
-                    }
-                  
                     }
                 }
             }
@@ -291,36 +264,7 @@
                                     "store": "yes"
                                 }
                             }
-                        },
-                      "reports": {
-
-                           "properties": {
-                             "id": {
-                                "type": "long",
-                                "include_in_all": false
-                             },
-                             "name": {
-                                 "type": "string",
-                                 "include_in_all": false
-                            }    
-                        
                         }
-                    },
-                    "terms": {
-
-                           "properties": {
-                             "id": {
-                                "type": "long",
-                                "include_in_all": false
-                             },
-                             "name": {
-                                "type": "string",
-                                "include_in_all": false
-                            }    
-                        
-                        }
-                    }
-                  
                     }
                 }
             }
@@ -439,38 +383,7 @@
                                     "store": "yes"
                                 }
                             }
-                        },
-                         "terms": {
-
-                           "properties": {
-                             "id": {
-                                "type": "long"
-                             },
-                             "name": {
-                                "type": "string",
-                                "include_in_all": false
-                            }    
-                        
-                        }
-                    },
-                      "security_roles": {
-
-                           "properties": {
-                             "id": {
-                                "type": "long",
-                                "include_in_all": false
-                             },                         
-                             "stake": {
-                                "type": "string",
-                                "include_in_all": false
-                             },
-                             "name": {
-                                 "type": "string",
-                                 "include_in_all": false
-                            }    
-                        
-                        }
-                    } 
+                        } 
                     }
                 }
             }
