@@ -9,9 +9,18 @@ class UsersController < GraphController
   end
 
   def user_roles
-  	role_hash = {}
-  	role_hash["roles"] = []
-  	role_hash["roles"] << "Report Publisher"
-  	render json: role_hash.to_json
+    begin
+    	role_hash = {}
+    	role_hash["roles"] = []
+    	role_hash["roles"] << "Report Publisher"
+
+      if ( params[:netid] == 'afreda' )
+        role_hash["roles"] << "Term Editor"
+      end
+
+    	render json: role_hash.to_json
+    rescue (Exception e)
+      render json: {}
+    end
   end
 end
