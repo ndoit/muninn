@@ -32,6 +32,7 @@ BIPortalDataService::Application.routes.draw do
 
   get '/users/:netid/roles', to: 'users#user_roles'
 
+  create_resources 'users'
 
   #create_resources 'proposed_terms'
   #put '/proposed_terms/publish/:id', to: 'proposed_terms#publish'
