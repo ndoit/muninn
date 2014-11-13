@@ -29,6 +29,8 @@ nodes:
             - role_eds_code
             - is_public
             - report_role
+    user:
+        unique_property: net_id
 relationships:
     HAS_DOMAIN_TAG:
         source_label: report
@@ -51,4 +53,7 @@ relationships:
         target_label: term
     REQUIRES:
         source_label: report
+        target_label: security_role
+    HAS_ROLE:
+        source_label: user
         target_label: security_role
