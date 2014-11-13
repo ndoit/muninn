@@ -30,7 +30,7 @@ class BulkController < ApplicationController
   end
 
   def export
-    result = BulkLoader.new.export
+    result = BulkLoader.new.export(params[:target])
     if result[:success]
       render :status => 200, :json => result
     else

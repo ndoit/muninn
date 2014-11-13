@@ -33,26 +33,28 @@ class BulkLoader
     return result
   end
 
-  def export
+  def export(target)
     export_result = []
 
     GraphModel.instance.nodes.values.each do |node_model|
-      all_nodes = CypherTools.execute_query_into_hash_array("
-        START n=node(*)
-        MATCH (n:#{node_model.label.to_s})
-        RETURN
-          Id(n) AS id,
-          n.#{node_model.unique_property} AS unique_property
-        ",{},nil)
-      all_nodes.each do |node|
-        exported_node = export_node(node_model, node["id"])
-        if exported_node == nil
-          return { success: false, message: "Unable to read #{node_model.label.to_s} id=" + node["id"].to_s }
+      if(target==nil || node_model.label.to_s==target)
+        all_nodes = CypherTools.execute_query_into_hash_array("
+          START n=node(*)
+          MATCH (n:#{node_model.label.to_s})
+          RETURN
+            Id(n) AS id,
+            n.#{node_model.unique_property} AS unique_property
+          ",{},nil)
+        all_nodes.each do |node|
+          exported_node = export_node(node_model, node["id"])
+          if exported_node == nil
+            return { success: false, message: "Unable to read #{node_model.label.to_s} id=" + node["id"].to_s }
+          end
+          export_result << {
+            "target_uri" => node_model.label.to_s.downcase.pluralize + "/" + node["unique_property"],
+            "content" => exported_node
+          }
         end
-        export_result << {
-          "target_uri" => node_model.label.to_s.downcase.pluralize + "/" + node["unique_property"],
-          "content" => exported_node
-        }
       end
     end
 

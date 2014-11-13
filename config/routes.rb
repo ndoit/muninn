@@ -21,6 +21,7 @@ BIPortalDataService::Application.routes.draw do
   end
 
   get '/bulk', to: 'bulk#export'
+  get '/bulk/:target', to: 'bulk#export'
   post '/bulk', to: 'bulk#load'
   delete '/bulk/:confirmation', to: 'bulk#wipe'
 
