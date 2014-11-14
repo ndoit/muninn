@@ -29,6 +29,7 @@ nodes:
             - role_eds_code
             - is_public
             - report_role
+            - iam_export_code
     user:
         unique_property: net_id
 relationships:
