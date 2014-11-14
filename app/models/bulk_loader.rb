@@ -35,9 +35,12 @@ class BulkLoader
 
   def export(target)
     export_result = []
+    if(target!=nil)
+      target_label = target.singularize
+    end
 
     GraphModel.instance.nodes.values.each do |node_model|
-      if(target==nil || node_model.label.to_s==target)
+      if(target_label==nil || node_model.label.to_s==target_label)
         all_nodes = CypherTools.execute_query_into_hash_array("
           START n=node(*)
           MATCH (n:#{node_model.label.to_s})
