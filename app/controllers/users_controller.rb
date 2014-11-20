@@ -33,6 +33,7 @@ class UsersController < GraphController
     LogTime.info "Parsing users."
 
     data.each do |user_data|
+      LogTime.info("Parsing" + user_data.to_s + "...")
       user_roles = []
       user_data["entitlement"].each do |entitlement|
         role = entitlement[20..entitlement.length]
