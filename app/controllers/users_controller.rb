@@ -15,8 +15,10 @@ class UsersController < GraphController
 
   def extract_json_message(rawdata)
     begin
-      return JSON.parse(rawdata.body)
-    rescue
+      data = JSON.parse(rawdata.body)
+      return data["message"]
+    rescue Exception => e  
+      LogTime.info "Extract failed with error: " + e.message
       return []
     end
   end
@@ -79,7 +81,7 @@ class UsersController < GraphController
     return role_map
   end
 
-  def get_aws_messages(params)
+  def pull_aws_queue(params)
     LogTime.info "Reading AWS connection params."
 
     access_key_id = params[:access_key_id]
@@ -102,40 +104,74 @@ class UsersController < GraphController
 
     messages = sqs.receive_message queue_url: qurl.queue_url
 
-    LogTime.info messages.length.to_s + " messages found."
+    LogTime.info messages[:messages].length.to_s + " messages found."
 
-    return messages
+    return {
+      :messages => messages[:messages],
+      :sqs => sqs,
+      :queue_url => qurl.queue_url
+    }
+
+      #sqs.delete_message queue_url: qurl.queue_url, receipt_handle: message[:receipt_handle]
   end
 
   def load_from_aws    
-    role_map = get_role_map
-    messages = get_aws_messages(params)
+    aws_queue = pull_aws_queue(params)
 
-    messages[:messages].each do |rawdata|
+    if(aws_queue[:messages].length==0)
+      render :status => 200, :json => { :success => true, :message => "Queue empty." }
+      return
+    end
+
+    sqs = aws_queue[:sqs]
+    queue_url = aws_queue[:queue_url]
+
+    role_map = get_role_map
+    processed = 0
+    success = false
+
+    aws_queue[:messages].each do |rawdata|
       LogTime.info "Raw message: " + rawdata.to_s
 
       users = parse_message(rawdata, role_map)
+      processed = processed + 1
 
-      chunkSize = 10
-      startIndex = 0
+      if users.length > 0
+        chunkSize = 10
+        startIndex = 0
 
-      while startIndex < users.length do
-        LogTime.info "Chunking " + startIndex.to_s + ".." + (startIndex + chunkSize - 1).to_s + "..."
+        while startIndex < users.length do
+          LogTime.info "Chunking " + startIndex.to_s + ".." + (startIndex + chunkSize - 1).to_s + "..."
 
-        chunk = []
-        i = startIndex
-        while (i < startIndex + chunkSize) && (i < users.length) do
-          chunk << users[i]
-          i = i + 1
+          chunk = []
+          i = startIndex
+          while (i < startIndex + chunkSize) && (i < users.length) do
+            chunk << users[i]
+            i = i + 1
+          end
+
+          LogTime.info "Chunk complete. Loading."
+          BulkLoader.new.load(chunk)
+          LogTime.info "*** CHUNK LOADED ***"
+
+          startIndex += chunkSize
         end
 
-        LogTime.info "Chunk complete. Loading."
-        BulkLoader.new.load(chunk)
+        LogTime.info "Message loaded."
+        success = true
+      end
+
+      if params[:delete_when_done] != nil && params[:delete_when_done].downcase != "false"
+        LogTime.info "Deleting queue_url " + queue_url.to_s + ", receipt_handle: " + rawdata[:receipt_handle].to_s
+        delete_output = sqs.delete_message queue_url: queue_url, receipt_handle: rawdata[:receipt_handle]
+        LogTime.info "Delete output: " + delete_output.to_s
       end
     end
 
-    LogTime.info "All messages loaded."
-
-    render :status => 200
+    if success
+      render :status => 200, :json => { :success => true, :message => processed.to_s + " messages processed. Users updated." }
+    else
+      render :status => 500, :json => { :success => false, :message => processed.to_s + " messages processed. All had errors." }
+    end
   end
 end
