@@ -50,3 +50,4 @@ gem 'puma'
 # gem 'debugger', group: [:development, :test]
 
 gem 'dotenv'
+gem 'aws-sdk', '2.0.8.pre'

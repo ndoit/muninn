@@ -30,7 +30,8 @@ BIPortalDataService::Application.routes.draw do
   get '/terms/id/:id/:version_number', to: 'terms#show'
   get '/terms/:unique_property/:version_number', to: 'terms#show'
 
-  get '/users/:netid/roles', to: 'users#user_roles'
+  #get '/users/:netid/roles', to: 'users#user_roles'
+  post '/users/load_from_aws', to: 'users#load_from_aws'
 
   create_resources 'users'
 
