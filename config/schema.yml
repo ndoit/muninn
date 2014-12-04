@@ -1,4 +1,8 @@
 nodes:
+    dataset:
+        unique_property: name
+        other_properties:
+            - description
     term:
         unique_property: name
         other_properties:
@@ -33,6 +37,7 @@ nodes:
     user:
         unique_property: net_id
 relationships:
+
     HAS_DOMAIN_TAG:
         source_label: report
         target_label: domain_tag
@@ -51,6 +56,15 @@ relationships:
         target_label: office
     CONTAINS:
         source_label: report
+        target_label: term
+    IS_USED_BY:
+        source_label: dataset
+        target_label: report
+    IS_OWNED_BY:
+        source_label: dataset
+        target_label: office
+    CONTAINS:
+        source_label: dataset
         target_label: term
     REQUIRES:
         source_label: report
