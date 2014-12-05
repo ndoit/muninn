@@ -48,9 +48,6 @@ BIPortalDataService::Application.routes.draw do
 
   create_resources 'security_roles'
 
-  get 'quick_search/:query_string', to: 'search#quick_search'
-  #All other search features will eventually be removed.
-
   get 'search/:query_string', to: 'search#search'
   get 'search/custom/query/:index', to: 'search#advanced_search'
   get 'search/custom/query', to: 'search#advanced_search'

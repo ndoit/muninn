@@ -30,10 +30,14 @@ class ElasticSearchIO
               general_access[item["&label"]] = SecurityGoon.check_for_full_read(user_obj, item["&label"])
             end
             if general_access[item["&label"]]
+              item.delete("&label")
+              item.delete("&allows_access_with")
               output_items << item
             elsif item.has_key?("&allows_access_with")
               item["&allows_access_with"].each do |role|
                 if user_obj["roles"].include?(role["name"])
+                  item.delete("&label")
+                  item.delete("&allows_access_with")
                   output_items << item
                   break
                 end
@@ -54,50 +58,7 @@ class ElasticSearchIO
   def initialize
   end
 
-  def quick_search(search_string, user_obj)
-    if search_string == nil || search_string.blank?
-      # checks if you entered anything into the search box
-      json_string = '
-      {
-        "query" : {
-          "query_string" : {
-            "query" : "*",
-            "default_operator" : "and"
-          }
-        },
-        "aggs" : {
-          "type" : {
-            "terms" : {
-              "field" : "_type"
-            }
-          }
-        },
-        "from" : "0",
-        "size" : "999"
-      }'
-    else
-      # if you did, saves it as part of the json_string
-      json_string = '
-      {
-        "query" : {
-          "query_string" : {
-            "query" : "#{search_string}",
-            "default_operator": "and"
-          }
-        },
-        "aggs" : {
-          "type" : {
-            "terms" : {
-              "field" : "_type"
-            }
-          }
-        },
-        "from" : "0",
-        "size" : "999"
-      }'
-    end
-    client = Elasticsearch::Client.new log: true
-    search_result = client.search body: json_string
+  def filter_output_by_access(search_result, user_obj)
     output = []
     general_access = {}
     search_result["hits"]["hits"].each do |hit|
@@ -351,7 +312,7 @@ class ElasticSearchIO
   end
 
 
-  def advanced_search(query_json, index = nil)
+  def advanced_search(query_json, user_obj, index = nil)
     client = Elasticsearch::Client.new log: true
     if query_json == nil
       return { success: false, message: "You must include a query." }
@@ -361,10 +322,10 @@ class ElasticSearchIO
     else
       output = client.search  body: query_json #hard coded terms index needs to be paramater. #SMM removed the index as a parameter for common search
     end
-    return { success: true, result: output }
+    return { success: true, result: filter_output_by_access(output, user_obj) }
   end
 
-  def search(query_string, label = nil)
+  def search(query_string, user_obj, label = nil)
     if label == nil
       if query_string == nil
         return { success: false, message: "Specify a result type or a search term." }
@@ -385,29 +346,20 @@ class ElasticSearchIO
 
     if response.kind_of? Net::HTTPSuccess
       LogTime.info("Response received: " + response.body)
-      return { success: true, results: extract_results(response.body) }
+      return { success: true, results: extract_results(response.body, user_obj) }
     else
       LogTime.info("Response failed.")
       return { success: false, message: response.message }
     end
   end
 
-  def extract_results(search_response)
+  def extract_results(search_response, user_obj)
     response_hash = JSON.parse(search_response)
     if !response_hash.has_key?("hits")
       LogTime.info("No contents.")
       return []
     end
-    output = []
-    response_hash["hits"]["hits"].each do |hit|
-      node = {
-        :id => hit["_id"].to_i,
-        :type => hit["_type"],
-        :score => hit["_score"],
-        :data => hit["_source"]
-      }
-      output << node
-    end
+    output = filter_output_by_access(response_hash, user_obj)
     return output
   end
 end
