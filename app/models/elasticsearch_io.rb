@@ -359,7 +359,6 @@ class ElasticSearchIO
       LogTime.info("No contents.")
       return []
     end
-    output = filter_output_by_access(response_hash, user_obj)
-    return output
+    return filter_output_by_access(response_hash, user_obj)
   end
 end
