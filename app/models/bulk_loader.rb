@@ -1,7 +1,7 @@
 require "elasticsearch_io.rb"
 
 class BulkLoader
-  def wipe
+  def wipe(user_obj)
     tx = CypherTools.start_transaction
     result = nil
     begin
@@ -33,7 +33,7 @@ class BulkLoader
     return result
   end
 
-  def export(target)
+  def export(target, user_obj)
     export_result = []
     if(target!=nil)
       target_label = target.singularize
@@ -49,7 +49,7 @@ class BulkLoader
             n.#{node_model.unique_property} AS unique_property
           ",{},nil)
         all_nodes.each do |node|
-          exported_node = export_node(node_model, node["id"])
+          exported_node = export_node(node_model, node["id"], user_obj)
           if exported_node == nil
             return { success: false, message: "Unable to read #{node_model.label.to_s} id=" + node["id"].to_s }
           end
@@ -67,9 +67,9 @@ class BulkLoader
     }
   end
 
-  def export_node(node_model, id)
+  def export_node(node_model, id, user_obj)
     repository = ModelRepository.new(node_model.label.to_sym)
-    read_result = repository.read({ :id => id}, nil)
+    read_result = repository.read({ :id => id}, user_obj)
     if !read_result[:success]
       LogTime.info(read_result[:message])
       return nil
@@ -138,7 +138,7 @@ class BulkLoader
     return output
   end
 
-  def load(json_body)
+  def load(json_body, user_obj)
     node_states = []
 
   	json_body.each do |element|
@@ -160,14 +160,14 @@ class BulkLoader
     error_messages = ""
 
     node_states.each do |node_state|
-      output = write_primary_node_content(node_state)
+      output = write_primary_node_content(node_state, user_obj)
       if !output[:success]
         error_messages = error_messages + "\n**Failed to write node data for #{node_state.target_uri}: " + output[:message]
       end
     end
 
     node_states.each do |node_state|
-      output = write_other_content(node_state)
+      output = write_other_content(node_state, user_obj)
       if !output[:success]
         error_messages = error_messages + "\n**Failed to write relationships for #{node_state.target_uri}: " + output[:message]
       end
@@ -243,7 +243,7 @@ class BulkLoader
     return !output[:success]
   end
 
-  def write_primary_node_content(node_state)
+  def write_primary_node_content(node_state, user_obj)
     repository = ModelRepository.new(node_state.primary_label.to_sym)
     read_result = repository.read({ :unique_property => node_state.unique_property }, nil)
     node_exists = read_result[:success]
@@ -256,7 +256,7 @@ class BulkLoader
   	  end
   	  content = { :unique_property => node_state.unique_property }
   	  	LogTime.info "Attempting delete."
-  	  return repository.delete(content, nil)
+  	  return repository.delete(content, user_obj)
   	end
 
   	if node_state.primary_node_content == nil
@@ -268,10 +268,10 @@ class BulkLoader
     content[:unique_property] = node_state.unique_property
   	LogTime.info(node_exists ? "Attempting update: #{node_state.primary_node_content.to_s}." :
   		"Attempting create: #{node_state.primary_node_content.to_s}.")
-    return repository.write(content, !node_exists, nil)
+    return repository.write(content, !node_exists, user_obj)
   end
 
-  def write_other_content(node_state)
+  def write_other_content(node_state, user_obj)
   	if node_state.action == :delete
   	  #If this node has been deleted, we obviously don't have anything to do here.
   	  return { success: true }
@@ -284,7 +284,7 @@ class BulkLoader
     content = node_state.other_content.clone
     content[:unique_property] = node_state.unique_property
     LogTime.info("Attempting update: #{node_state.other_content.to_s}")
-    return repository.write(content, false, nil)
+    return repository.write(content, false, user_obj)
   end
 end
 

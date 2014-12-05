@@ -4,6 +4,18 @@ class SearchController < ApplicationController
   #We don't maintain sessions, so we don't need to worry about cross-site request forgery.
   skip_before_action :verify_authenticity_token
 
+  def quick_search
+    # Moved this into Muninn so we can handle security properly.
+    user_result = SecurityGoon.who_is_this(params)
+    if !user_result[:success]
+      render :status => 500, :json => user_result
+      return
+    end
+
+    output = ElasticSearchIO.instance.quick_search(params[:search_string], user_result[:user])
+    render :status => 200, :json => output
+  end
+
   def rebuild
   	output = ElasticSearchIO.instance.rebuild_search_index
 	  if output[:success]
