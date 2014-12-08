@@ -12,9 +12,13 @@ class BulkController < ApplicationController
       return
     end
     user_obj = user_result[:user]
-    if !user_obj["is_admin"]
-      render :status => 500, :json => { success: false, message: "Access denied." }
-      return
+    if request.remote_ip != "127.0.0.1"
+      if !user_obj["is_admin"]
+        render :status => 500, :json => { success: false, message: "Access denied." }
+        return
+      end
+    else
+      user_obj["net_id"] = "&localhost"
     end
 
     if params[:confirmation] != "NoSeriouslyIMeanIt"
@@ -39,9 +43,13 @@ class BulkController < ApplicationController
       return
     end
     user_obj = user_result[:user]
-    if !user_obj["is_admin"]
-      render :status => 500, :json => { success: false, message: "Access denied." }
-      return
+    if request.remote_ip != "127.0.0.1"
+      if !user_obj["is_admin"]
+        render :status => 500, :json => { success: false, message: "Access denied." }
+        return
+      end
+    else
+      user_obj["net_id"] = "&localhost"
     end
 
   	json_body = params["_json"]
@@ -61,9 +69,13 @@ class BulkController < ApplicationController
       return
     end
     user_obj = user_result[:user]
-    if !user_obj["is_admin"]
-      render :status => 500, :json => { success: false, message: "Access denied." }
-      return
+    if request.remote_ip != "127.0.0.1"
+      if !user_obj["is_admin"]
+        render :status => 500, :json => { success: false, message: "Access denied." }
+        return
+      end
+    else
+      user_obj["net_id"] = "&localhost"
     end
 
     result = BulkLoader.new.export(params[:target], user_obj)

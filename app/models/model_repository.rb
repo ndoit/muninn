@@ -129,8 +129,8 @@ class ModelRepository
     node_model = GraphModel.instance.nodes[@primary_label]
     now = Time.now.utc
 
-    is_secured = !SecurityGoon.check_for_full_write(user_obj, @primary_label)
-    if is_secured
+    access_is_limited = !SecurityGoon.check_for_full_create(user_obj, @primary_label)
+    if access_is_limited
       return { success: false, message: "Access denied." }
     end
   	
@@ -166,12 +166,85 @@ class ModelRepository
   	  return { message: "#{primary_label} already exists.", id: create_result["id"], success: false }
   	end
 
-  	return { id: create_result["id"], success: true }
+    # The node was created new. Grant ownership rights if possible.
+    ownership = grant_ownership_rights(params, user_obj, create_result["id"].to_i, node_model, tx)
+
+  	return { id: create_result["id"], success: true, has_ownership_rights: ownership }
+  end
+
+  def grant_ownership_rights(params, user_obj, id, node_model, tx)
+    # To be used when a node was just created. We want to ensure that the user who created it is given
+    # update/delete access if possible. Returns true if successful, false if not.
+
+    if user_obj["is_admin"]
+      # No changes necessary, user is an admin.
+      return true
+    end
+
+    if user_obj["update_access_to"].include?(node_model.label.to_s) &&
+      user_obj["delete_access_to"].include?(node_model.label.to_s)
+      # No changes necessary, user already has all required access.
+      return true
+    end
+
+    ownership_possible = false
+    node_model.outgoing.each do |relation|
+      if relation.relation_name == "ALLOWS_ACCESS_WITH" && relation.target_label == :security_role
+        ownership_possible = true
+        break
+      end
+    end
+    if !ownership_possible
+      return false
+    end
+
+    # Now we know that the user does not have ownership rights, but that it is possible to grant those rights
+    # for this node type. Now we need to determine which security role should get those rights.
+    role_id = nil
+    if params.has_key?(:create_as)
+      target_role = params[:create_as]
+      if !user_obj["roles"].has_key?(target_role)
+        # You can't create under a role you don't belong to!
+        raise "User does not have security role " + target_role.to_s + "."
+        return
+      end
+      if !user_obj["roles"][target_role]["create_access_to"].include?(node_model.label.to_s)
+        # This role doesn't have create access for the target node type.
+        raise "Security role " + target_role + " does not have access to create " + node_model.label.to_s.pluralize + "."
+        return
+      end
+      role_id = user_obj["roles"][target_role]["id"]
+    else
+      # You didn't say what role to create under, so we're just going to go through your roles and grab the
+      # first one with create access for this node type. Good luck.
+      user_obj["roles"].keys.each do |role|
+        if user_obj["roles"][role]["create_access_to"].include?(node_model.label.to_s)
+          role_id = user_obj["roles"][role]["id"]
+          break
+        end
+      end
+    end
+
+    if role_id == nil
+      # This should never happen; it should not be possible to get this far if you don't have a role with create
+      # access for this node type. But just in case you somehow do get here...
+      raise "User does not have a security role with access to create " + node_model.label.to_s.pluralize + "."
+      return
+    end
+
+    # Okay! We have finally picked out an appropriate security role. Now to set up access:
+    security_role_model = GraphModel.instance.nodes[:security_role]
+    output = CypherTools.execute_query_into_hash_array("
+      START n=node({id}), sr=node({role_id})
+      CREATE (n)-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr)
+      RETURN Id(r)
+    ", { :id => id, :role_id => role_id }, tx)
+    return (output.length > 0)
   end
   
   def update_primary_node(params, user_obj, tx)
     node_model = GraphModel.instance.nodes[@primary_label]
-    is_secured = !SecurityGoon.check_for_full_write(user_obj, @primary_label)
+    access_is_limited = !SecurityGoon.check_for_full_update(user_obj, @primary_label)
 
   	if !params.has_key?(@primary_label)
   	  #If the params does not contain a primary node, no update is required.
@@ -180,16 +253,16 @@ class ModelRepository
   	  if params[:id] != nil
   	  	LogTime.info("\n\nBMR: Updating by id, which is #{params[:id]}")
   	  	result = CypherTools.execute_query_returning_scalar("
-  	      START primary=node({id})" + (is_secured ? ", u=node({user_id})" : " ") + "
-  	      MATCH (primary:#{primary_label})" + (is_secured ? "-[r:ALLOWS_ACCESS_WITH { allow_write: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
+  	      START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : " ") + "
+  	      MATCH (primary:#{primary_label})" + (access_is_limited ? "-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
   	      RETURN Id(primary)
   	      ", { :id => params[:id].to_i, :user_id => user_obj["id"] }, tx)
   	  else
   	  	LogTime.info("\n\nBMR: Updating by unique property, which is.. #{node_model.unique_property.to_s} ... value=#{params[:unique_property]}")
   	  	result = CypherTools.execute_query_returning_scalar(
-          (is_secured ? "START u=node({user_id})" : "") + "
+          (access_is_limited ? "START u=node({user_id})" : "") + "
   	      MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })" +
-          (is_secured ? "-[r:ALLOWS_ACCESS_WITH { allow_write: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
+          (access_is_limited ? "-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
   	      RETURN Id(primary)
   	      ", { :unique_property => params[:unique_property], :user_id => user_obj["id"] }, tx)
       end
@@ -200,8 +273,8 @@ class ModelRepository
       if params[:id] != nil
         parameters = { :id => params[:id].to_i, :now => now, :user =>  user_obj["net_id"], :user_id => user_obj["id"] }
         query_string = "
-        START primary=node({id})" + (is_secured ? ", u=node({user_id})" : " ") + "
-        MATCH (primary:#{primary_label})" + (is_secured ? "-[r:ALLOWS_ACCESS_WITH { allow_write: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
+        START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : " ") + "
+        MATCH (primary:#{primary_label})" + (access_is_limited ? "-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
         SET
         primary.modified_date = {now},
         primary.modified_by = {user},
@@ -210,9 +283,9 @@ class ModelRepository
       else
         parameters = { :unique_property => params[:unique_property], :now => now, :user => user_obj["net_id"], :user_id => user_obj["id"] }
         query_string =
-        (is_secured ? "START u=node({user_id})" : "") + "
+        (access_is_limited ? "START u=node({user_id})" : "") + "
         MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })" +
-        (is_secured ? "-[r:ALLOWS_ACCESS_WITH { allow_write: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
+        (access_is_limited ? "-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
         SET
         primary.modified_date = {now},
         primary.modified_by = {user},
@@ -379,8 +452,10 @@ class ModelRepository
       end
     end
 
-    is_secured = !SecurityGoon.check_for_full_write(user_obj, other_node_model.label)
-    if is_secured
+    # You do *not* need write access to the related node in order to create a relationship to it,
+    # but you do need read access.
+    access_is_limited = !SecurityGoon.check_for_full_read(user_obj, other_node_model.label)
+    if access_is_limited
       parameters[:user_id] = user_obj["id"]
       if direction == :outgoing
         if target_start != nil
@@ -388,14 +463,14 @@ class ModelRepository
         else
           target_start = "u=node({user_id})"
         end
-        target_match += "-[:ALLOWS_ACCESS_WITH { allow_write: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        target_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
       else
         if source_start != nil
           source_start += ", u=node({user_id})"
         else
           source_start = "u=node({user_id})"
         end
-        source_match += "-[:ALLOWS_ACCESS_WITH { allow_write: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        source_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
       end
     end
 
@@ -528,13 +603,13 @@ class ModelRepository
     node_model = GraphModel.instance.nodes[@primary_label]
   	output = nil
 
-    is_secured = !SecurityGoon.check_for_full_read(user_obj, @primary_label)
+    access_is_limited = !SecurityGoon.check_for_full_read(user_obj, @primary_label)
 
   	if identifier_is_id
   	  LogTime.info("Querying with id.")
   	  output = CypherTools.execute_query_into_hash_array("
-  	    START n=node({id})" + (is_secured ? ", u=node({user_id})" : "") + "
-    		MATCH (n:" + node_model.label + ")" + (is_secured ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
+  	    START n=node({id})" + (access_is_limited ? ", u=node({user_id})" : "") + "
+    		MATCH (n:" + node_model.label + ")" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
     		RETURN
     		n.created_date,
     		n.modified_date,
@@ -546,8 +621,8 @@ class ModelRepository
   	else
   	  LogTime.info("Querying without id.")
   	  output = CypherTools.execute_query_into_hash_array(
-        (is_secured ? "START u=node({user_id})" : "") + "
-    		MATCH (n:" + node_model.label + ")" + (is_secured ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
+        (access_is_limited ? "START u=node({user_id})" : "") + "
+    		MATCH (n:" + node_model.label + ")" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
     		WHERE n." + node_model.unique_property + " = {unique_property}
     		RETURN
     		n.created_date,
@@ -581,8 +656,8 @@ class ModelRepository
   	  return_array = relation.source_number == :many #If this relationship is many-to-x, return an array.
   	end
 
-    is_secured = !SecurityGoon.check_for_full_read(user_obj, other_node_label)
-    if is_secured
+    access_is_limited = !SecurityGoon.check_for_full_read(user_obj, other_node_label)
+    if access_is_limited
       if direction==:outgoing
         match_string = "(u)-[:HAS_ROLE]->(s:security_role)<-[:ALLOWS_ACCESS_WITH]-" + match_string
       else
@@ -593,7 +668,7 @@ class ModelRepository
   	LogTime.info("return_array = " + return_array.to_s)
   	  
     output = CypherTools.execute_query_into_hash_array("
-  	  START primary=node({id})" + (is_secured ? ", u=node({user_id})" : "") + "
+  	  START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : "") + "
   	  MATCH #{match_string}
   	  RETURN
   	  other.created_date,
@@ -680,15 +755,15 @@ class ModelRepository
   	  identifier_is_id = false
   	end
 
-    is_secured = !SecurityGoon.check_for_full_write(user_obj, @primary_label)
+    access_is_limited = !SecurityGoon.check_for_full_delete(user_obj, @primary_label)
     tx = CypherTools.start_transaction
 
   	#Since we will probably have to delete a bunch of relationships too, we go ahead and
   	#retrieve the node Id first.
   	if identifier_is_id
   	  id = CypherTools.execute_query_returning_scalar("
-  	  	START n=node({identifier})" + (is_secured ? ", u=node({user_id})" : "") + "
-        MATCH (n:#{primary_label})" + (is_secured ? "-[:ALLOWS_ACCESS_WITH { allow_write: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
+  	  	START n=node({identifier})" + (access_is_limited ? ", u=node({user_id})" : "") + "
+        MATCH (n:#{primary_label})" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
         RETURN Id(n)
   	  	", { :identifier => identifier.to_i, :user_id => user_obj["id"] }, tx
   	  )
@@ -699,9 +774,9 @@ class ModelRepository
   	else
   	  node_model = GraphModel.instance.nodes[@primary_label]
   	  id = CypherTools.execute_query_returning_scalar(
-        (is_secured ? "START u=node({user_id})" : "") + "
+        (access_is_limited ? "START u=node({user_id})" : "") + "
         MATCH (n:#{primary_label} { " + node_model.unique_property + ": {unique_property} })" +
-        (is_secured ? "-[:ALLOWS_ACCESS_WITH { allow_write: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
+        (access_is_limited ? "-[:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
         RETURN Id(n)
   	  	", { :unique_property => identifier, :user_id => user_obj["id"] }, tx
   	  )

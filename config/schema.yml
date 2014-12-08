@@ -29,8 +29,10 @@ nodes:
             - role_eds_code
             - is_public
             - is_admin
+            - create_access_to
             - read_access_to
-            - write_access_to
+            - update_access_to
+            - delete_access_to
             - report_role
             - iam_export_code
     user:
@@ -59,9 +61,10 @@ relationships:
         target_label: security_role
         source_label:
             - report
+            - term
         name_to_source: allows_access_with
-        other_properties:
-            - allow_write
+        properties:
+            - allow_update_and_delete
     HAS_ROLE:
         source_label: user
         target_label: security_role

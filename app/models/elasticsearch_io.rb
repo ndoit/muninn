@@ -35,7 +35,7 @@ class ElasticSearchIO
               output_items << item
             elsif item.has_key?("&allows_access_with")
               item["&allows_access_with"].each do |role|
-                if user_obj["roles"].include?(role["name"])
+                if user_obj["roles"].has_key?(role["name"])
                   item.delete("&label")
                   item.delete("&allows_access_with")
                   output_items << item
@@ -69,7 +69,7 @@ class ElasticSearchIO
         output << convert_hit_to_output(hit, user_obj, general_access)
       elsif hit["_source"].has_key?("allows_access_with")
         hit["_source"]["allows_access_with"].each do |role|
-          if user_obj["roles"].include?(role["name"])
+          if user_obj["roles"].has_key?(role["name"])
             output << convert_hit_to_output(hit, user_obj, general_access)
             break
           end

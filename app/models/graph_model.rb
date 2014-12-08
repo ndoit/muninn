@@ -1,7 +1,7 @@
 require "singleton"
 
 class NodeModel
-  attr_accessor :label, :properties, :unique_property, :is_secured
+  attr_accessor :label, :properties, :unique_property
   attr_accessor :outgoing, :incoming
 
   def parameters_contain_property(parameters, property)
@@ -27,7 +27,7 @@ class NodeModel
   	@unique_property = parameters[:unique_property]
   	@outgoing = []
   	@incoming = []
-    @is_secured = false
+    #@is_secured = false
   end
 
   def property_string(node_reference, include_sensitive = false)
@@ -136,12 +136,12 @@ class GraphModel
     @relationships.each do |relationship|
       @nodes[relationship.source_label].outgoing << relationship
       @nodes[relationship.target_label].incoming << relationship
-      if relationship.relation_name == "REQUIRES" && relationship.target_label == :security_role
+      #if relationship.relation_name == "REQUIRES" && relationship.target_label == :security_role
         # Any node which has a REQUIRES relationship to the security_role node type is
         # considered "secured," meaning we check for access when you try to read it.
-        LogTime.info("REQUIRES relation discovered for " + relationship.source_label.to_s + ", marking node as secured.")
-        @nodes[relationship.source_label].is_secured = true
-      end
+        #LogTime.info("REQUIRES relation discovered for " + relationship.source_label.to_s + ", marking node as secured.")
+        #@nodes[relationship.source_label].is_secured = true
+      #end
     end
   end
 

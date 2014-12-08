@@ -9,8 +9,11 @@ class SecurityGoon
         "id" => nil,
         "net_id" => "&admin",
         "is_admin" => true,
+        "roles" => {},
+        "create_access_to" => [],
         "read_access_to" => [],
-        "write_access_to" => []
+        "update_access_to" => [],
+        "delete_access_to" => []
         }}
     end
 
@@ -34,22 +37,35 @@ class SecurityGoon
     return UserRepository.new().security_get(validate_result.user)
   end
 
+  def self.check_for_full_create(user_obj, label)
+    LogTime.info("Checking whether " + user_obj["net_id"] + " has full create access to " + label.to_s + ".")
+    node_model = GraphModel.instance.nodes[label]
+    LogTime.info("User has full create access to node type: " + user_obj["create_access_to"].include?(label.to_s).to_s)
+    LogTime.info("User is admin: " + user_obj["is_admin"].to_s)
+    return (user_obj["is_admin"]==true) || user_obj["create_access_to"].include?(label.to_s)
+  end
+
   def self.check_for_full_read(user_obj, label)
     LogTime.info("Checking whether " + user_obj["net_id"] + " has full read access to " + label.to_s + ".")
     node_model = GraphModel.instance.nodes[label]
-    #LogTime.info("Node is of a secured type: " + node_model.is_secured.to_s)
     LogTime.info("User has full read access to node type: " + user_obj["read_access_to"].include?(label.to_s).to_s)
     LogTime.info("User is admin: " + user_obj["is_admin"].to_s)
-    #return (!node_model.is_secured) || (user_obj["is_admin"]==true) || user_obj["read_access_to"].include?(label.to_s)
     return (user_obj["is_admin"]==true) || user_obj["read_access_to"].include?(label.to_s)
   end
 
-  def self.check_for_full_write(user_obj, label)
-    LogTime.info("Checking whether " + user_obj["net_id"] + " has full write access to " + label.to_s + ".")
+  def self.check_for_full_update(user_obj, label)
+    LogTime.info("Checking whether " + user_obj["net_id"] + " has full update access to " + label.to_s + ".")
     node_model = GraphModel.instance.nodes[label]
-    # There is no such thing as a non-secured node type for write access.
-    LogTime.info("User has full write access to node type: " + user_obj["write_access_to"].include?(label.to_s).to_s)
+    LogTime.info("User has full update access to node type: " + user_obj["update_access_to"].include?(label.to_s).to_s)
     LogTime.info("User is admin: " + user_obj["is_admin"].to_s)
-    return (user_obj["is_admin"]==true) || user_obj["write_access_to"].include?(label.to_s)
+    return (user_obj["is_admin"]==true) || user_obj["update_access_to"].include?(label.to_s)
+  end
+
+  def self.check_for_full_delete(user_obj, label)
+    LogTime.info("Checking whether " + user_obj["net_id"] + " has full delete access to " + label.to_s + ".")
+    node_model = GraphModel.instance.nodes[label]
+    LogTime.info("User has full delete access to node type: " + user_obj["delete_access_to"].include?(label.to_s).to_s)
+    LogTime.info("User is admin: " + user_obj["is_admin"].to_s)
+    return (user_obj["is_admin"]==true) || user_obj["delete_access_to"].include?(label.to_s)
   end
 end
