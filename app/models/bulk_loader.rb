@@ -151,7 +151,7 @@ class BulkLoader
       return { success: false, message: "Duplicate target_uris found: #{joined_duplicates}" }
     end
 
-    missing_dependencies = find_missing_dependencies(node_states)
+    missing_dependencies = find_missing_dependencies(node_states, user_obj)
     if missing_dependencies.length > 0
       joined_missing_dependencies = missing_dependencies.join(", ")
       return { success: false, message: "Missing dependencies found: #{joined_missing_dependencies}" }
@@ -210,7 +210,7 @@ class BulkLoader
   	return duplicate_uris
   end
 
-  def find_missing_dependencies(node_states)
+  def find_missing_dependencies(node_states, user_obj)
     all_uri_dependencies = []
     missing_dependencies = []
     node_states.each do |node_state|
@@ -222,7 +222,7 @@ class BulkLoader
     end
 
     all_uri_dependencies.each do |uri_dependency|
-      if dependency_is_missing(uri_dependency, node_states)
+      if dependency_is_missing(uri_dependency, node_states, user_obj)
       	missing_dependencies << uri_dependency
       end
     end
@@ -230,7 +230,7 @@ class BulkLoader
     return missing_dependencies
   end
 
-  def dependency_is_missing(uri_dependency, node_states)
+  def dependency_is_missing(uri_dependency, node_states, user_obj)
     node_states.each do |node_state|
       if node_state.target_uri == uri_dependency
       	LogTime.info("Dependency matches node state: #{uri_dependency}")
@@ -239,13 +239,13 @@ class BulkLoader
     end
     split_result = DesiredNodeState.split_uri(uri_dependency)
     repository = ModelRepository.new(split_result[:label].to_sym)
-    output = repository.read({ :unique_property => split_result[:unique_property] }, nil)
+    output = repository.read({ :unique_property => split_result[:unique_property] }, user_obj)
     return !output[:success]
   end
 
   def write_primary_node_content(node_state, user_obj)
     repository = ModelRepository.new(node_state.primary_label.to_sym)
-    read_result = repository.read({ :unique_property => node_state.unique_property }, nil)
+    read_result = repository.read({ :unique_property => node_state.unique_property }, user_obj)
     node_exists = read_result[:success]
 
   	if node_state.action == :delete

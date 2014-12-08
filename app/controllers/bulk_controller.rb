@@ -19,6 +19,7 @@ class BulkController < ApplicationController
       end
     else
       user_obj["net_id"] = "&localhost"
+      user_obj["is_admin"] = true
     end
 
     if params[:confirmation] != "NoSeriouslyIMeanIt"
@@ -50,6 +51,7 @@ class BulkController < ApplicationController
       end
     else
       user_obj["net_id"] = "&localhost"
+      user_obj["is_admin"] = true
     end
 
   	json_body = params["_json"]
@@ -76,6 +78,7 @@ class BulkController < ApplicationController
       end
     else
       user_obj["net_id"] = "&localhost"
+      user_obj["is_admin"] = true
     end
 
     result = BulkLoader.new.export(params[:target], user_obj)
