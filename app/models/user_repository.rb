@@ -70,9 +70,9 @@ class UserRepository < ModelRepository
             "delete_access_to" => (role["delete_access_to"] == nil ? [] : role["delete_access_to"])
           }
         end
-        if role["is_admin"]==true && net_id != "&anonymous"
-          # You can set is_admin on a public role if you really want to.
-          # However, anonymous users never get admin rights.
+        if role["is_admin"]==true && (role["is_public"]==false || Rails.env.development?)
+          # Public roles can't ever grant admin access, except in dev where we allow it for testing
+          # purposes (as a way to "turn off" security temporarily).
           user_obj["is_admin"] = true
         end
         if role["create_access_to"] != nil
@@ -108,10 +108,10 @@ class UserRepository < ModelRepository
     else
       if net_id != "&anonymous"
         # Could not find the requested user. Try anonymous instead.
-        return security_get(nil)
+        return security_get("&anonymous")
       else
         # Could not find anonymous user. Create one and return that.
-        if !no_recursion
+        if no_recursion
           # This means we already tried to create an anonymous user and somehow failed.
           return { success: false, message: "User not found, failed to create anonymous user (no error message)." }
         end
@@ -193,7 +193,7 @@ class UserRepository < ModelRepository
     public_roles = get_public_roles
     public_roles.each do |public_role|
       role_found = false
-      params[:security_roles].each do |role|
+      params["security_roles"].each do |role|
         if role.has_key?(:id) && public_role[:id] == role[:id]
           role_found = true
         elsif role.has_key?(role_unique_property) && public_role[role_unique_property] == role[role_unique_property]
@@ -201,7 +201,7 @@ class UserRepository < ModelRepository
         end
       end
       if !role_found
-        params[:security_roles] << public_role
+        params["security_roles"] << public_role
       end
     end
 

@@ -243,8 +243,20 @@ class BulkLoader
     return !output[:success]
   end
 
+  def new_repository(label)
+    # User and security_role are special cases with extra rules built in.
+    if label == :user
+      return UserRepository.new()
+    elsif label == :security_role
+      return SecurityRoleRepository.new()
+    else
+      return ModelRepository.new(label)
+    end
+  end
+
   def write_primary_node_content(node_state, user_obj)
-    repository = ModelRepository.new(node_state.primary_label.to_sym)
+    repository = new_repository(node_state.primary_label.to_sym)
+
     read_result = repository.read({ :unique_property => node_state.unique_property }, user_obj)
     node_exists = read_result[:success]
 
@@ -280,7 +292,7 @@ class BulkLoader
   	  #No relationship updates are required.
   	  return { success: true }
   	end
-    repository = ModelRepository.new(node_state.primary_label.to_sym)
+    repository = new_repository(node_state.primary_label.to_sym)
     content = node_state.other_content.clone
     content[:unique_property] = node_state.unique_property
     LogTime.info("Attempting update: #{node_state.other_content.to_s}")
@@ -305,6 +317,7 @@ class DesiredNodeState
     initialize_uri_and_label(raw_json)
     initialize_action_and_content(raw_json)
     initialize_uri_dependencies
+    LogTime.info "Primary node content: " + @primary_node_content.to_s
   end
 
   def initialize_uri_and_label(raw_json)

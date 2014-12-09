@@ -98,9 +98,9 @@ class ModelRepository
   		  is_required = relation.target_number == :one
   	    if params.has_key?(params_key)
   	      write_result = write_relationship(id, relation, :outgoing, params, params_key, tx, user_obj)
-  		  if !write_result[:success]
-  		    return write_result
-  		  end
+    		  if !write_result[:success]
+    		    return write_result
+    		  end
   	    elsif is_required
   	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
   	    end
@@ -316,6 +316,7 @@ class ModelRepository
   end
   
   def write_relationship(id, relation, direction, params, params_key, tx, user_obj)
+    LogTime.info "Writing relationship: " + relation.relation_name.to_s
     if direction == :outgoing
   	  number_of = relation.target_number
   	else
