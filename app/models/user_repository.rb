@@ -103,6 +103,7 @@ class UserRepository < ModelRepository
             end
           end
         end
+        LogTime.info "Finished with role."
       end
       return { success: true, user: user_obj }
     else
