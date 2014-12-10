@@ -139,12 +139,13 @@ class GraphController < ApplicationController
       render :status => 500, :json => user_result
       return
     end
+    user_obj = user_result[:user]
     
     LogTime.info "Instantiating ModelRepository."
     repository = get_model_repository
   
     LogTime.debug "Processing index request."
-    output = ElasticSearchIO.instance.search(nil, @primary_label)
+    output = ElasticSearchIO.instance.search(nil, user_obj, @primary_label)
   
     LogTime.debug "Rendering output."
     if output[:success]
