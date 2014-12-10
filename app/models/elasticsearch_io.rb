@@ -11,15 +11,10 @@ require "httparty"
 class ElasticSearchIO
   include Singleton
 
-  def convert_hit_to_output(hit, user_obj, general_access)
-    output = {
-      "id" => hit["_id"].to_i,
-      "type" => hit["_type"],
-      "score" => hit["_score"],
-      "sort_name" => hit["_source"]["name"],
-      "data" => {}
-    }
+  def convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
     data = hit["_source"]
+    output_data = {}
+    aggregations = {}
     # We have to apply security filters to related nodes as well as the main node.
     data.keys.each do |key|
       if data[key].kind_of?(Array)
@@ -47,36 +42,69 @@ class ElasticSearchIO
             output_items << item
           end
         end
-        output["data"][key] = output_items
+        output_data[key] = output_items
       else
-        output["data"][key] = data[key]
+        output_data[key] = data[key]
       end
     end
-    return output
+
+    if do_cleanup
+      return {
+        "id" => hit["_id"].to_i,
+        "type" => hit["_type"],
+        "score" => hit["_score"],
+        "sort_name" => hit["_source"]["name"],
+        "data" => output_data
+      }
+    else
+      hit["_source"] = output_data
+      return hit
+    end
   end
 
   def initialize
   end
 
-  def filter_output_by_access(search_result, user_obj)
+  def filter_output_by_access(search_result, user_obj, do_cleanup)
     output = []
     general_access = {}
+    counts_by_type = {}
     search_result["hits"]["hits"].each do |hit|
       if !general_access.has_key?(hit["_type"])
         general_access[hit["_type"]] = SecurityGoon.check_for_full_read(user_obj, hit["_type"])
       end
       if general_access[hit["_type"]]
-        output << convert_hit_to_output(hit, user_obj, general_access)
+        output << convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
+        if !counts_by_type.has_key?(hit["_type"])
+          counts_by_type[hit["_type"]] = 1
+        else
+          counts_by_type[hit["_type"]] += 1
+        end
       elsif hit["_source"].has_key?("allows_access_with")
         hit["_source"]["allows_access_with"].each do |role|
           if user_obj["roles"].has_key?(role["name"])
-            output << convert_hit_to_output(hit, user_obj, general_access)
+            output << convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
+            if !counts_by_type.has_key?(hit["_type"])
+              counts_by_type[hit["_type"]] = 1
+            else
+              counts_by_type[hit["_type"]] += 1
+            end
             break
           end
         end
       end
     end
-    return output
+    if do_cleanup
+      return output
+    else
+      search_result["hits"]["hits"] = output
+      search_result["hits"]["total"] = output.length
+      search_result["aggregations"]["type"]["buckets"] = []
+      counts_by_type.keys.each do |key|
+        search_result["aggregations"]["type"]["buckets"] << { "key" => key, "doc_count" => counts_by_type[key] }
+      end
+      return search_result
+    end
   end
 
   def update_nodes_with_data(label, data)
@@ -322,7 +350,7 @@ class ElasticSearchIO
     else
       output = client.search  body: query_json #hard coded terms index needs to be paramater. #SMM removed the index as a parameter for common search
     end
-    return { success: true, result: filter_output_by_access(output, user_obj) }
+    return { success: true, result: filter_output_by_access(output, user_obj, false) }
   end
 
   def search(query_string, user_obj, label = nil)
@@ -359,6 +387,6 @@ class ElasticSearchIO
       LogTime.info("No contents.")
       return []
     end
-    return filter_output_by_access(response_hash, user_obj)
+    return filter_output_by_access(response_hash, user_obj, true)
   end
 end
