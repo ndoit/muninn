@@ -32,12 +32,16 @@ nodes:
         other_properties: 
             - role_eds_code
             - is_public
+            - is_admin
+            - create_access_to
+            - read_access_to
+            - update_access_to
+            - delete_access_to
             - report_role
             - iam_export_code
     user:
         unique_property: net_id
 relationships:
-
     HAS_DOMAIN_TAG:
         source_label: report
         target_label: domain_tag
@@ -51,24 +55,33 @@ relationships:
         name_to_target: stakeholders
         properties:
             - stake
+    IS_MADE_WITH:
+        target_label: dataset
+        source_label: report
     IS_OWNED_BY:
-        source_label: report
         target_label: office
+        source_label: 
+            - report
+            - dataset    
     CONTAINS:
-        source_label: report
         target_label: term
-    IS_USED_BY:
-        source_label: dataset
-        target_label: report
-    IS_OWNED_BY:
-        source_label: dataset
-        target_label: office
-    CONTAINS:
-        source_label: dataset
-        target_label: term
-    REQUIRES:
-        source_label: report
+        source_label: 
+            - report
+            - dataset
+    ALLOWS_ACCESS_WITH:
         target_label: security_role
+        source_label:
+            - report
+            - term
+            - dataset
+        name_to_source: allows_access_with
+        properties:
+            - allow_update_and_delete
     HAS_ROLE:
         source_label: user
         target_label: security_role
+    IS_FAVORITE_OF:
+        source_label: report
+        name_to_source: users_favoring
+        target_label: user
+        name_to_target: favorites
