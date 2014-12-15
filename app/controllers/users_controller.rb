@@ -24,20 +24,25 @@ class UsersController < GraphController
   end
 
   def user_roles
-   begin
-    role_hash = {}
-    role_hash["roles"] = []
-    role_hash["roles"] << "Report Publisher"
+    begin
+      role_hash = {}
+      role_hash["roles"] = []
+      role_hash["roles"] << "Report Publisher"
 
-     if ( params[:netid] == 'afreda' )
-       role_hash["roles"] << "Term Editor"
-     end
+      if ( params[:netid] == 'afreda' )
+        role_hash["roles"] << "Term Editor"
+      end 
 
-    render json: role_hash.to_json
-   rescue (Exception e)
-     render json: {}
-   end
- end
+      render json: role_hash.to_json
+    rescue (Exception e)
+      render json: {}
+    end
+  end
+
+  def my_access
+    output = SecurityGoon.who_is_this(params)
+    render :status => (output[:success] ? 200 : 500), :json => output.to_json
+  end
 
   def parse_message(rawdata, role_map)
     LogTime.info "Extracting JSON from AWS message."

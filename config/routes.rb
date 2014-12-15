@@ -56,4 +56,5 @@ BIPortalDataService::Application.routes.draw do
   post 'search/rebuild', to: 'search#rebuild'
   post 'search/reinitialize', to: 'search#reinitialize'
 
+  get 'my_access', to: 'users#my_access'
 end

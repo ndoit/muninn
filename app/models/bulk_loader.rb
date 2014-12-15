@@ -1,7 +1,7 @@
 require "elasticsearch_io.rb"
 
 class BulkLoader
-  def wipe
+  def wipe(user_obj)
     tx = CypherTools.start_transaction
     result = nil
     begin
@@ -33,7 +33,7 @@ class BulkLoader
     return result
   end
 
-  def export(target)
+  def export(target, user_obj)
     export_result = []
     if(target!=nil)
       target_label = target.singularize
@@ -49,7 +49,7 @@ class BulkLoader
             n.#{node_model.unique_property} AS unique_property
           ",{},nil)
         all_nodes.each do |node|
-          exported_node = export_node(node_model, node["id"])
+          exported_node = export_node(node_model, node["id"], user_obj)
           if exported_node == nil
             return { success: false, message: "Unable to read #{node_model.label.to_s} id=" + node["id"].to_s }
           end
@@ -67,9 +67,9 @@ class BulkLoader
     }
   end
 
-  def export_node(node_model, id)
+  def export_node(node_model, id, user_obj)
     repository = ModelRepository.new(node_model.label.to_sym)
-    read_result = repository.read({ :id => id}, nil)
+    read_result = repository.read({ :id => id}, user_obj)
     if !read_result[:success]
       LogTime.info(read_result[:message])
       return nil
@@ -138,7 +138,7 @@ class BulkLoader
     return output
   end
 
-  def load(json_body)
+  def load(json_body, user_obj)
     node_states = []
 
   	json_body.each do |element|
@@ -151,7 +151,7 @@ class BulkLoader
       return { success: false, message: "Duplicate target_uris found: #{joined_duplicates}" }
     end
 
-    missing_dependencies = find_missing_dependencies(node_states)
+    missing_dependencies = find_missing_dependencies(node_states, user_obj)
     if missing_dependencies.length > 0
       joined_missing_dependencies = missing_dependencies.join(", ")
       return { success: false, message: "Missing dependencies found: #{joined_missing_dependencies}" }
@@ -160,14 +160,14 @@ class BulkLoader
     error_messages = ""
 
     node_states.each do |node_state|
-      output = write_primary_node_content(node_state)
+      output = write_primary_node_content(node_state, user_obj)
       if !output[:success]
         error_messages = error_messages + "\n**Failed to write node data for #{node_state.target_uri}: " + output[:message]
       end
     end
 
     node_states.each do |node_state|
-      output = write_other_content(node_state)
+      output = write_other_content(node_state, user_obj)
       if !output[:success]
         error_messages = error_messages + "\n**Failed to write relationships for #{node_state.target_uri}: " + output[:message]
       end
@@ -210,7 +210,7 @@ class BulkLoader
   	return duplicate_uris
   end
 
-  def find_missing_dependencies(node_states)
+  def find_missing_dependencies(node_states, user_obj)
     all_uri_dependencies = []
     missing_dependencies = []
     node_states.each do |node_state|
@@ -222,7 +222,7 @@ class BulkLoader
     end
 
     all_uri_dependencies.each do |uri_dependency|
-      if dependency_is_missing(uri_dependency, node_states)
+      if dependency_is_missing(uri_dependency, node_states, user_obj)
       	missing_dependencies << uri_dependency
       end
     end
@@ -230,7 +230,7 @@ class BulkLoader
     return missing_dependencies
   end
 
-  def dependency_is_missing(uri_dependency, node_states)
+  def dependency_is_missing(uri_dependency, node_states, user_obj)
     node_states.each do |node_state|
       if node_state.target_uri == uri_dependency
       	LogTime.info("Dependency matches node state: #{uri_dependency}")
@@ -239,13 +239,25 @@ class BulkLoader
     end
     split_result = DesiredNodeState.split_uri(uri_dependency)
     repository = ModelRepository.new(split_result[:label].to_sym)
-    output = repository.read({ :unique_property => split_result[:unique_property] }, nil)
+    output = repository.read({ :unique_property => split_result[:unique_property] }, user_obj)
     return !output[:success]
   end
 
-  def write_primary_node_content(node_state)
-    repository = ModelRepository.new(node_state.primary_label.to_sym)
-    read_result = repository.read({ :unique_property => node_state.unique_property }, nil)
+  def new_repository(label)
+    # User and security_role are special cases with extra rules built in.
+    if label == :user
+      return UserRepository.new()
+    elsif label == :security_role
+      return SecurityRoleRepository.new()
+    else
+      return ModelRepository.new(label)
+    end
+  end
+
+  def write_primary_node_content(node_state, user_obj)
+    repository = new_repository(node_state.primary_label.to_sym)
+
+    read_result = repository.read({ :unique_property => node_state.unique_property }, user_obj)
     node_exists = read_result[:success]
 
   	if node_state.action == :delete
@@ -256,7 +268,7 @@ class BulkLoader
   	  end
   	  content = { :unique_property => node_state.unique_property }
   	  	LogTime.info "Attempting delete."
-  	  return repository.delete(content, nil)
+  	  return repository.delete(content, user_obj)
   	end
 
   	if node_state.primary_node_content == nil
@@ -268,10 +280,10 @@ class BulkLoader
     content[:unique_property] = node_state.unique_property
   	LogTime.info(node_exists ? "Attempting update: #{node_state.primary_node_content.to_s}." :
   		"Attempting create: #{node_state.primary_node_content.to_s}.")
-    return repository.write(content, !node_exists, nil)
+    return repository.write(content, !node_exists, user_obj)
   end
 
-  def write_other_content(node_state)
+  def write_other_content(node_state, user_obj)
   	if node_state.action == :delete
   	  #If this node has been deleted, we obviously don't have anything to do here.
   	  return { success: true }
@@ -280,11 +292,11 @@ class BulkLoader
   	  #No relationship updates are required.
   	  return { success: true }
   	end
-    repository = ModelRepository.new(node_state.primary_label.to_sym)
+    repository = new_repository(node_state.primary_label.to_sym)
     content = node_state.other_content.clone
     content[:unique_property] = node_state.unique_property
     LogTime.info("Attempting update: #{node_state.other_content.to_s}")
-    return repository.write(content, false, nil)
+    return repository.write(content, false, user_obj)
   end
 end
 
@@ -305,6 +317,7 @@ class DesiredNodeState
     initialize_uri_and_label(raw_json)
     initialize_action_and_content(raw_json)
     initialize_uri_dependencies
+    LogTime.info "Primary node content: " + @primary_node_content.to_s
   end
 
   def initialize_uri_and_label(raw_json)

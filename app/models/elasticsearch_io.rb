@@ -11,7 +11,100 @@ require "httparty"
 class ElasticSearchIO
   include Singleton
 
+  def convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
+    data = hit["_source"]
+    output_data = {}
+    aggregations = {}
+    # We have to apply security filters to related nodes as well as the main node.
+    data.keys.each do |key|
+      if data[key].kind_of?(Array)
+        output_items = []
+        data[key].each do |item|
+          if item.kind_of?(Hash) && item.has_key?("&label")
+            if !general_access.has_key?(item["&label"])
+              general_access[item["&label"]] = SecurityGoon.check_for_full_read(user_obj, item["&label"])
+            end
+            if general_access[item["&label"]]
+              item.delete("&label")
+              item.delete("&allows_access_with")
+              output_items << item
+            elsif item.has_key?("&allows_access_with")
+              item["&allows_access_with"].each do |role|
+                if user_obj["roles"].has_key?(role["name"])
+                  item.delete("&label")
+                  item.delete("&allows_access_with")
+                  output_items << item
+                  break
+                end
+              end
+            end
+          else
+            output_items << item
+          end
+        end
+        output_data[key] = output_items
+      else
+        output_data[key] = data[key]
+      end
+    end
+
+    if do_cleanup
+      return {
+        "id" => hit["_id"].to_i,
+        "type" => hit["_type"],
+        "score" => hit["_score"],
+        "sort_name" => hit["_source"]["name"],
+        "data" => output_data
+      }
+    else
+      hit["_source"] = output_data
+      return hit
+    end
+  end
+
   def initialize
+  end
+
+  def filter_output_by_access(search_result, user_obj, do_cleanup)
+    output = []
+    general_access = {}
+    counts_by_type = {}
+    search_result["hits"]["hits"].each do |hit|
+      if !general_access.has_key?(hit["_type"])
+        general_access[hit["_type"]] = SecurityGoon.check_for_full_read(user_obj, hit["_type"])
+      end
+      if general_access[hit["_type"]]
+        output << convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
+        if !counts_by_type.has_key?(hit["_type"])
+          counts_by_type[hit["_type"]] = 1
+        else
+          counts_by_type[hit["_type"]] += 1
+        end
+      elsif hit["_source"].has_key?("allows_access_with")
+        hit["_source"]["allows_access_with"].each do |role|
+          if user_obj["roles"].has_key?(role["name"])
+            output << convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
+            if !counts_by_type.has_key?(hit["_type"])
+              counts_by_type[hit["_type"]] = 1
+            else
+              counts_by_type[hit["_type"]] += 1
+            end
+            break
+          end
+        end
+      end
+    end
+    if do_cleanup
+      return output
+    else
+      search_result["hits"]["hits"] = output
+      search_result["hits"]["total"] = output.length
+      search_result["aggregations"]["type"]["buckets"] = []
+      counts_by_type.keys.each do |key|
+        search_result["aggregations"]["type"]["buckets"] << { "key" => key, "doc_count" => counts_by_type[key] }
+      end
+      return search_result
+    end
   end
 
   def update_nodes_with_data(label, data)
@@ -28,9 +121,10 @@ class ElasticSearchIO
 
           START n=node({id})
           MATCH (n:" + label.to_s + ")-[r:" + relation.relation_name + "]->(other)
-          RETURN id(other) AS id, other." + target_model.unique_property + relation.property_string("r"),
+          OPTIONAL MATCH (other)-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
+          RETURN id(other) AS id, sr.name AS allows_access_with, other." + target_model.unique_property + relation.property_string("r"),
           { :id => id }, nil)
-        node[relation.name_to_source.pluralize] = related_nodes
+        node[relation.name_to_source] = process_related_nodes(related_nodes, target_model.label)
       end
 
       LogTime.info("Incoming relations: " + node_model.incoming.to_s)
@@ -40,9 +134,10 @@ class ElasticSearchIO
 
           START n=node({id})
           MATCH (n:" + label.to_s + ")<-[r:" + relation.relation_name + "]-(other)
-          RETURN id(other) AS id, other." + source_model.unique_property + relation.property_string("r"),
+          OPTIONAL MATCH (other)-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
+          RETURN id(other) AS id, sr.name AS allows_access_with, other." + source_model.unique_property + relation.property_string("r"),
           { :id => id }, nil)
-        node[relation.name_to_target.pluralize] = related_nodes
+        node[relation.name_to_target] = process_related_nodes(related_nodes, source_model.label)
       end
 
       LogTime.info("Updating node: " + id.to_s)
@@ -63,6 +158,39 @@ class ElasticSearchIO
       end
     end
     return { success: true }
+  end
+
+  def process_related_nodes(related_nodes, label)
+    output = []
+    output_nodes = {}
+    related_nodes.each do |node|
+      if output_nodes.has_key?(node["id"])
+        if node["&allows_access_with"] != nil
+          output_nodes[node["id"]]["&allows_access_with"] << { "name" => node["allows_access_with"] }
+        end
+      else
+        new_node = { "&label" => label }
+        LogTime.info node.to_s
+        node.keys.each do |key|
+          if key=="allows_access_with"
+            if node[key] != nil
+              new_node["&allows_access_with"] = [ node[key] ]
+            else
+              new_node["&allows_access_with"] = []
+            end
+          else
+            new_node[key] = node[key]
+          end
+        end
+        output_nodes[node["id"]] = new_node
+      end
+    end
+
+    output = []
+    output_nodes.keys.each do |key|
+      output << output_nodes[key]
+    end
+    return output
   end
 
   def run_initialization_tasks
@@ -211,7 +339,8 @@ class ElasticSearchIO
     return update_nodes_with_data(label, node_data)
   end
 
-  def advanced_search(query_json, index = nil)
+
+  def advanced_search(query_json, user_obj, index = nil)
     client = Elasticsearch::Client.new log: true
     if query_json == nil
       return { success: false, message: "You must include a query." }
@@ -221,10 +350,10 @@ class ElasticSearchIO
     else
       output = client.search  body: query_json #hard coded terms index needs to be paramater. #SMM removed the index as a parameter for common search
     end
-    return { success: true, result: output }
+    return { success: true, result: filter_output_by_access(output, user_obj, false) }
   end
 
-  def search(query_string, label = nil)
+  def search(query_string, user_obj, label = nil)
     if label == nil
       if query_string == nil
         return { success: false, message: "Specify a result type or a search term." }
@@ -245,29 +374,19 @@ class ElasticSearchIO
 
     if response.kind_of? Net::HTTPSuccess
       LogTime.info("Response received: " + response.body)
-      return { success: true, results: extract_results(response.body) }
+      return { success: true, results: extract_results(response.body, user_obj) }
     else
       LogTime.info("Response failed.")
       return { success: false, message: response.message }
     end
   end
 
-  def extract_results(search_response)
+  def extract_results(search_response, user_obj)
     response_hash = JSON.parse(search_response)
     if !response_hash.has_key?("hits")
       LogTime.info("No contents.")
       return []
     end
-    output = []
-    response_hash["hits"]["hits"].each do |hit|
-      node = {
-        :id => hit["_id"].to_i,
-        :type => hit["_type"],
-        :score => hit["_score"],
-        :data => hit["_source"]
-      }
-      output << node
-    end
-    return output
+    return filter_output_by_access(response_hash, user_obj, true)
   end
 end
