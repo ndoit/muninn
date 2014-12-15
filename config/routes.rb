@@ -40,6 +40,8 @@ BIPortalDataService::Application.routes.draw do
 
   create_resources 'offices'
 
+  create_resources 'datasets'
+
   create_resources 'reports'
 
   create_resources 'domain_tags'
