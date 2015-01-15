@@ -17,10 +17,11 @@ nodes:
     report:
         unique_property: name
         other_properties:
+            - office_owner
             - datasource
             - data_last_updated 
             - description
-            - embedJSON              
+            - embedJSON
             - report_type
             - thumbnail_uri
     domain_tag:
