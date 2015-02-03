@@ -27,4 +27,8 @@ BIPortalDataService::Application.configure do
   # number of complex assets.
   config.assets.debug = true
 
+  # If set to false, Muninn will accept whatever it's told by the front end
+  # about who's connecting to it. If set to true, it will require a CAS
+  # proxy ticket.
+  config.require_proxy_auth = false
 end

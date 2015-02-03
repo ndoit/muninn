@@ -17,9 +17,9 @@ class SecurityGoon
         }}
     end
 
-    if Rails.env.development? && params[:impersonate]
-      LogTime.info("Impersonating: " + params[:impersonate])
-      return UserRepository.new().security_get(params[:impersonate])
+    if !Rails.application.config.require_proxy_auth && params[:cas_user]
+      LogTime.info("Accepting front end authentication for: " + params[:cas_user])
+      return UserRepository.new().security_get(params[:cas_user])
     end
 
   	if !params.has_key?(:service) || !params.has_key?(:ticket)

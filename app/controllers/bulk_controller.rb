@@ -1,8 +1,6 @@
 class BulkController < ApplicationController
   #We don't maintain sessions, so we don't need to worry about cross-site request forgery.
   skip_before_action :verify_authenticity_token
-  #before_filter CASClient::Frameworks::Rails::GatewayFilter, :only => :show
-  #before_filter CASClient::Frameworks::Rails::Filter, :except => [ :show, :search ]
 
   def wipe
     LogTime.info "Identifying user."

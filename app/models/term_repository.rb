@@ -12,11 +12,13 @@ class TermRepository < ModelRepository
 
   def add_raci_matrix(output)
     output[:raci_matrix] = {}
-    output["stakeholders"].each do |stakeholder|
-      if !output[:raci_matrix].has_key?(stakeholder["stake"])
-        output[:raci_matrix][stakeholder["stake"]] = []
+    if(output.has_key?("stakeholders"))
+      output["stakeholders"].each do |stakeholder|
+        if !output[:raci_matrix].has_key?(stakeholder["stake"])
+          output[:raci_matrix][stakeholder["stake"]] = []
+        end
+        output[:raci_matrix][stakeholder["stake"]] << stakeholder["name"]
       end
-      output[:raci_matrix][stakeholder["stake"]] << stakeholder["name"]
     end
   end
 end

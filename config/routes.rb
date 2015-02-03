@@ -19,7 +19,7 @@ BIPortalDataService::Application.routes.draw do
 
     get nodes, to: nodes + '#index'
   end
-
+  
   get '/bulk', to: 'bulk#export'
   get '/bulk/:target', to: 'bulk#export'
   post '/bulk', to: 'bulk#load'

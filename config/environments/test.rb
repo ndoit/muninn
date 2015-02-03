@@ -33,4 +33,9 @@ BIPortalDataService::Application.configure do
 
   # Print deprecation notices to the stderr.
   config.active_support.deprecation = :stderr
+
+  # If set to false, Muninn will accept whatever it's told by the front end
+  # about who's connecting to it. If set to true, it will require a CAS
+  # proxy ticket.
+  config.require_proxy_auth = false
 end
