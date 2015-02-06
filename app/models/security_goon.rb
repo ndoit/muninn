@@ -1,20 +1,24 @@
 
 class SecurityGoon
+  def self.generic_admin
+    return {
+      "id" => nil,
+      "net_id" => "&admin",
+      "is_admin" => true,
+      "roles" => {},
+      "create_access_to" => [],
+      "read_access_to" => [],
+      "update_access_to" => [],
+      "delete_access_to" => []
+      }
+  end
+
   def self.who_is_this(params)
     LogTime.info("Identifying user from params: " + params.to_s)
 
     if Rails.env.development? && params[:admin]
       LogTime.info("Impersonating generic admin.")
-      return { success: true, user: {
-        "id" => nil,
-        "net_id" => "&admin",
-        "is_admin" => true,
-        "roles" => {},
-        "create_access_to" => [],
-        "read_access_to" => [],
-        "update_access_to" => [],
-        "delete_access_to" => []
-        }}
+      return { success: true, user: generic_admin }
     end
 
     if !Rails.application.config.require_proxy_auth && params[:cas_user]

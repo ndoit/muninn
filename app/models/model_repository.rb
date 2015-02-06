@@ -605,6 +605,9 @@ class ModelRepository
   	output = nil
 
     access_is_limited = !SecurityGoon.check_for_full_read(user_obj, @primary_label)
+    if access_is_limited
+      LogTime.info("Access limited.")
+    end
 
   	if identifier_is_id
   	  LogTime.info("Querying with id.")

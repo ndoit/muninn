@@ -38,4 +38,10 @@ BIPortalDataService::Application.configure do
   # about who's connecting to it. If set to true, it will require a CAS
   # proxy ticket.
   config.require_proxy_auth = false
+
+  # If set to false, Muninn will leave security role updates on the queue
+  # after downloading them. If set to true, it will delete them after
+  # download.
+  # This should be set to true in prod, false in dev/test.
+  config.delete_security_role_updates = false
 end

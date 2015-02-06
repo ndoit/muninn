@@ -58,13 +58,17 @@ class UsersController < GraphController
     data.each do |user_data|
       LogTime.info("Parsing" + user_data.to_s + "...")
       user_roles = []
+      missing_roles = ""
       user_data["entitlement"].each do |entitlement|
         role = entitlement[20..entitlement.length]
         if(role_map[role]!=nil)
           user_roles << { "name" => role_map[role] }
         else
-          raise "Role not found in role_map.json: " + role
+          missing_roles += role + ";"
         end
+      end
+      if missing_roles.length > 0
+        raise "Role not found in role_map.json: " + missing_roles
       end
       user_record = {
         "target_uri" => "users/" + user_data["netId"],
@@ -86,9 +90,9 @@ class UsersController < GraphController
     return users
   end
 
-  def get_role_map
+  def get_role_map(user_obj)
     LogTime.info "Loading security roles."
-    roles_export = BulkLoader.new.export("security_roles")
+    roles_export = BulkLoader.new.export("security_roles",user_obj)
 
     LogTime.info roles_export.to_s
 
@@ -102,13 +106,13 @@ class UsersController < GraphController
     return role_map
   end
 
-  def pull_aws_queue(params)
-    LogTime.info "Reading AWS connection params."
+  def pull_aws_queue
+    LogTime.info "Loading AWS connection info."
 
-    access_key_id = params[:access_key_id]
-    secret_access_key = params[:secret_access_key]
-    msg_queue = params[:msg_queue]
-    msg_queue_owner = params[:msg_queue_owner]
+    access_key_id = ENV["security_load_access_key_id"]
+    secret_access_key = ENV["security_load_secret_access_key"]
+    msg_queue = ENV["security_load_msg_queue"]
+    msg_queue_owner = ENV["security_load_msg_queue_owner"]
 
     LogTime.info "Configuring AWS connection to queue " + msg_queue + "."
 
@@ -132,12 +136,23 @@ class UsersController < GraphController
       :sqs => sqs,
       :queue_url => qurl.queue_url
     }
-
-      #sqs.delete_message queue_url: qurl.queue_url, receipt_handle: message[:receipt_handle]
   end
 
   def load_from_aws    
-    aws_queue = pull_aws_queue(params)
+    # VERY IMPORTANT!
+
+    # This method does not accept user input in any way, shape, or form.
+
+    # This is crucial, because it bypasses regular authentication and runs with admin privs.
+
+    # If you change it to accept any kind of user input, you MUST remove the following line
+    # and replace it with the regular SecurityGoon process for authenticating a user. 
+
+    # And then you need to modify the cron job that calls this process nightly, since
+    # that job doesn't do anything to authenticate itself.
+    user_obj = SecurityGoon.generic_admin
+
+    aws_queue = pull_aws_queue
 
     if(aws_queue[:messages].length==0)
       render :status => 200, :json => { :success => true, :message => "Queue empty." }
@@ -147,7 +162,12 @@ class UsersController < GraphController
     sqs = aws_queue[:sqs]
     queue_url = aws_queue[:queue_url]
 
-    role_map = get_role_map
+    begin
+      role_map = get_role_map(user_obj)
+    rescue Exception => e
+      return { message: "Failed to generate role map due to error: #{e.message}", success: false }
+    end
+
     processed = 0
     success = false
 
@@ -172,7 +192,7 @@ class UsersController < GraphController
           end
 
           LogTime.info "Chunk complete. Loading."
-          BulkLoader.new.load(chunk)
+          BulkLoader.new.load(chunk,user_obj)
           LogTime.info "*** CHUNK LOADED ***"
 
           startIndex += chunkSize
@@ -182,7 +202,7 @@ class UsersController < GraphController
         success = true
       end
 
-      if params[:delete_when_done] != nil && params[:delete_when_done].downcase != "false"
+      if Rails.application.config.delete_security_role_updates
         LogTime.info "Deleting queue_url " + queue_url.to_s + ", receipt_handle: " + rawdata[:receipt_handle].to_s
         delete_output = sqs.delete_message queue_url: queue_url, receipt_handle: rawdata[:receipt_handle]
         LogTime.info "Delete output: " + delete_output.to_s
