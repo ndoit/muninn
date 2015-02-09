@@ -19,8 +19,9 @@ BIPortalDataService::Application.routes.draw do
 
     get nodes, to: nodes + '#index'
   end
-
+  
   get '/bulk', to: 'bulk#export'
+  get '/bulk/:target', to: 'bulk#export'
   post '/bulk', to: 'bulk#load'
   delete '/bulk/:confirmation', to: 'bulk#wipe'
 
@@ -30,12 +31,16 @@ BIPortalDataService::Application.routes.draw do
   get '/terms/:unique_property/:version_number', to: 'terms#show'
 
   get '/users/:netid/roles', to: 'users#user_roles'
+  post '/users/load_from_aws', to: 'users#load_from_aws'
 
+  create_resources 'users'
 
   #create_resources 'proposed_terms'
   #put '/proposed_terms/publish/:id', to: 'proposed_terms#publish'
 
   create_resources 'offices'
+
+  create_resources 'datasets'
 
   create_resources 'reports'
 
@@ -51,4 +56,5 @@ BIPortalDataService::Application.routes.draw do
   post 'search/rebuild', to: 'search#rebuild'
   post 'search/reinitialize', to: 'search#reinitialize'
 
+  get 'my_access', to: 'users#my_access'
 end

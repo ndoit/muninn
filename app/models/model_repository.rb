@@ -16,34 +16,34 @@ class ModelRepository
   	end
   end
 
-  def write(params, create_required, cas_user)
+  def write(params, create_required, user_obj)
     tx = CypherTools.start_transaction
     result = nil
-	begin
-	  result = write_with_transaction(params, create_required, cas_user, tx)
-	  if result[:success]
-	    CypherTools.commit_transaction(tx)
-	  else
-	    CypherTools.rollback_transaction(tx)
-	  end
+  	begin
+  	  result = write_with_transaction(params, create_required, user_obj, tx)
+  	  if result[:success]
+  	    CypherTools.commit_transaction(tx)
+  	  else
+  	    CypherTools.rollback_transaction(tx)
+  	  end
     rescue Exception => e
-	  CypherTools.rollback_transaction(tx)
-	  raise(e)
-	end
+  	  CypherTools.rollback_transaction(tx)
+  	  raise(e)
+  	end
 
-	if result[:success]
-	  search_result = ElasticSearchIO.instance.update_node(@primary_label, result[:id])
-	  if !search_result[:success]
-	  	result[:searchable] = false
-	  	result[:searchable_message] = search_result[:message]
-	  else
-	  	result[:searchable] = true
-	  end
-	end
-	return result
+  	if result[:success]
+  	  search_result = ElasticSearchIO.instance.update_node(@primary_label, result[:id])
+  	  if !search_result[:success]
+  	  	result[:searchable] = false
+  	  	result[:searchable_message] = search_result[:message]
+  	  else
+  	  	result[:searchable] = true
+  	  end
+  	end
+  	return result
   end
   
-  def write_with_transaction(params, create_required, cas_user, tx)
+  def write_with_transaction(params, create_required, user_obj, tx)
   	LogTime.info("write_with_transaction invoked: create_required = #{create_required.to_s}, params = #{params.to_s}")
   	id = nil
     primary_model = GraphModel.instance.nodes[@primary_label]
@@ -66,14 +66,14 @@ class ModelRepository
 	
 	if create_required
       LogTime.info("Creating new #{primary_label}.")
-	  create_result = create_primary_node(params, cas_user, tx)
+	  create_result = create_primary_node(params, user_obj, tx)
 	  if !create_result[:success]
 	  	return create_result
 	  end
 	  id = create_result[:id]
 	else
       LogTime.info("Updating primary node.")
-      update_result = update_primary_node(params, cas_user, tx)
+      update_result = update_primary_node(params, user_obj, tx)
       if !update_result[:success]
       	return update_result
       else
@@ -81,7 +81,7 @@ class ModelRepository
       end
 	end
 
-	relationship_result = write_relationships(id, params, create_required, tx)
+	relationship_result = write_relationships(id, params, create_required, tx, user_obj)
 	if !relationship_result[:success]
 	  return relationship_result
 	end
@@ -89,83 +89,162 @@ class ModelRepository
 	return { id: id, success: true }
   end
 
-  def write_relationships(id, params, create_required, tx)
+  def write_relationships(id, params, create_required, tx, user_obj)
   	LogTime.info("Writing relationships for node id=#{id.to_s}.")
     primary_model = GraphModel.instance.nodes[@primary_label]
-	primary_model.outgoing.each do |relation|
-	  if create_required || !relation.immutable #Immutable relationships can be created but not modified.
-	    params_key = relation.name_to_source
-		is_required = relation.target_number == :one
-	    if params.has_key?(params_key)
-	      write_result = write_relationship(id, relation, :outgoing, params, params_key, tx)
-		  if !write_result[:success]
-		    return write_result
-		  end
-	    elsif is_required
-	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
-	    end
-	  end
-	end
-	primary_model.incoming.each do |relation|
-	  if create_required || !relation.immutable #Immutable relationships can be created but not modified.
-	    params_key = relation.name_to_target
-		is_required = relation.source_number == :one
-	    if params.has_key?(params_key)
-	      write_result = write_relationship(id, relation, :incoming, params, params_key, tx)
-		  if !write_result[:success]
-		    return write_result
-		  end
-	    elsif is_required
-	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
-	    end
-	  end
-	end
-	
-	return { success: true }
+  	primary_model.outgoing.each do |relation|
+  	  if create_required || !relation.immutable #Immutable relationships can be created but not modified.
+  	    params_key = relation.name_to_source
+  		  is_required = relation.target_number == :one
+  	    if params.has_key?(params_key)
+  	      write_result = write_relationship(id, relation, :outgoing, params, params_key, tx, user_obj)
+    		  if !write_result[:success]
+    		    return write_result
+    		  end
+  	    elsif is_required
+  	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
+  	    end
+  	  end
+  	end
+  	primary_model.incoming.each do |relation|
+  	  if create_required || !relation.immutable #Immutable relationships can be created but not modified.
+  	    params_key = relation.name_to_target
+  		is_required = relation.source_number == :one
+  	    if params.has_key?(params_key)
+  	      write_result = write_relationship(id, relation, :incoming, params, params_key, tx, user_obj)
+  		  if !write_result[:success]
+  		    return write_result
+  		  end
+  	    elsif is_required
+  	      return { message: "Cannot create #{primary_label} without #{params_key}.", success: false }
+  	    end
+  	  end
+  	end
+  	
+  	return { success: true }
   end
   
-  def create_primary_node(params, cas_user, tx)
+  def create_primary_node(params, user_obj, tx)
   	node_contents = params[@primary_label]
     node_model = GraphModel.instance.nodes[@primary_label]
     now = Time.now.utc
-	
-	parameters = { :now => now, :user => "#{cas_user = nil ? "default" : cas_user.to_s}" }
-	node_model.properties.each do |property|
-	  if node_contents.has_key?(property) && node_contents[property] != nil
-	    parameters[property] = node_contents[property]
-	  else
-	  	parameters[property] = nil
-	  	#return { message: "Cannot create #{primary_label} without specifying #{property}.", success: false }
-	  end
-	end
 
-	LogTime.info(node_model.property_write_string("primary").to_s)
-	
+    access_is_limited = !SecurityGoon.check_for_full_create(user_obj, @primary_label)
+    if access_is_limited
+      return { success: false, message: "Access denied." }
+    end
+  	
+  	parameters = { :now => now, :user =>  user_obj["net_id"] }
+  	node_model.properties.each do |property|
+  	  if node_contents.has_key?(property) && node_contents[property] != nil
+  	    parameters[property] = node_contents[property]
+  	  else
+  	  	parameters[property] = nil
+  	  	#return { message: "Cannot create #{primary_label} without specifying #{property}.", success: false }
+  	  end
+  	end
+
+  	LogTime.info(node_model.property_write_string("primary").to_s)
+  	
     create_result = CypherTools.execute_query_into_hash_array("
-	
-	MERGE (primary:#{primary_label} { #{node_model.unique_property}: { #{node_model.unique_property} } })
-	ON CREATE SET
-	  primary.created_date = {now},
-	  primary.modified_date = {now},
-	  primary.created_by = {user},
-	  primary.modified_by = {user},
-	  " + node_model.property_write_string("primary") + "
-	RETURN
-	  primary.created_date = {now} AS created_new,
-	  Id(primary) AS id	
+  	
+  	MERGE (primary:#{primary_label} { #{node_model.unique_property}: { #{node_model.unique_property} } })
+  	ON CREATE SET
+  	  primary.created_date = {now},
+  	  primary.modified_date = {now},
+  	  primary.created_by = {user},
+  	  primary.modified_by = {user},
+  	  " + node_model.property_write_string("primary") + "
+  	RETURN
+  	  primary.created_date = {now} AS created_new,
+  	  Id(primary) AS id	
 
-	", parameters, tx)[0]
-	
-	if !create_result["created_new"]
-	  #Just as a note, the bulk loader depends on the Id being returned here.
-	  return { message: "#{primary_label} already exists.", id: create_result["id"], success: false }
-	end
+  	", parameters, tx)[0]
+  	
+  	if !create_result["created_new"]
+  	  #Just as a note, the bulk loader depends on the Id being returned here.
+  	  return { message: "#{primary_label} already exists.", id: create_result["id"], success: false }
+  	end
 
-	return { id: create_result["id"], success: true }
+    # The node was created new. Grant ownership rights if possible.
+    ownership = grant_ownership_rights(params, user_obj, create_result["id"].to_i, node_model, tx)
+
+  	return { id: create_result["id"], success: true, has_ownership_rights: ownership }
+  end
+
+  def grant_ownership_rights(params, user_obj, id, node_model, tx)
+    # To be used when a node was just created. We want to ensure that the user who created it is given
+    # update/delete access if possible. Returns true if successful, false if not.
+
+    if user_obj["is_admin"]
+      # No changes necessary, user is an admin.
+      return true
+    end
+
+    if user_obj["update_access_to"].include?(node_model.label.to_s) &&
+      user_obj["delete_access_to"].include?(node_model.label.to_s)
+      # No changes necessary, user already has all required access.
+      return true
+    end
+
+    ownership_possible = false
+    node_model.outgoing.each do |relation|
+      if relation.relation_name == "ALLOWS_ACCESS_WITH" && relation.target_label == :security_role
+        ownership_possible = true
+        break
+      end
+    end
+    if !ownership_possible
+      return false
+    end
+
+    # Now we know that the user does not have ownership rights, but that it is possible to grant those rights
+    # for this node type. Now we need to determine which security role should get those rights.
+    role_id = nil
+    if params.has_key?(:create_as)
+      target_role = params[:create_as]
+      if !user_obj["roles"].has_key?(target_role)
+        # You can't create under a role you don't belong to!
+        raise "User does not have security role " + target_role.to_s + "."
+        return
+      end
+      if !user_obj["roles"][target_role]["create_access_to"].include?(node_model.label.to_s)
+        # This role doesn't have create access for the target node type.
+        raise "Security role " + target_role + " does not have access to create " + node_model.label.to_s.pluralize + "."
+        return
+      end
+      role_id = user_obj["roles"][target_role]["id"]
+    else
+      # You didn't say what role to create under, so we're just going to go through your roles and grab the
+      # first one with create access for this node type. Good luck.
+      user_obj["roles"].keys.each do |role|
+        if user_obj["roles"][role]["create_access_to"].include?(node_model.label.to_s)
+          role_id = user_obj["roles"][role]["id"]
+          break
+        end
+      end
+    end
+
+    if role_id == nil
+      # This should never happen; it should not be possible to get this far if you don't have a role with create
+      # access for this node type. But just in case you somehow do get here...
+      raise "User does not have a security role with access to create " + node_model.label.to_s.pluralize + "."
+      return
+    end
+
+    # Okay! We have finally picked out an appropriate security role. Now to set up access:
+    security_role_model = GraphModel.instance.nodes[:security_role]
+    output = CypherTools.execute_query_into_hash_array("
+      START n=node({id}), sr=node({role_id})
+      CREATE (n)-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr)
+      RETURN Id(r)
+    ", { :id => id, :role_id => role_id }, tx)
+    return (output.length > 0)
   end
   
-  def update_primary_node(params, cas_user, tx)
+  def update_primary_node(params, user_obj, tx)
     node_model = GraphModel.instance.nodes[@primary_label]
+    access_is_limited = !SecurityGoon.check_for_full_update(user_obj, @primary_label)
 
   	if !params.has_key?(@primary_label)
   	  #If the params does not contain a primary node, no update is required.
@@ -174,49 +253,52 @@ class ModelRepository
   	  if params[:id] != nil
   	  	LogTime.info("\n\nBMR: Updating by id, which is #{params[:id]}")
   	  	result = CypherTools.execute_query_returning_scalar("
-  	      START primary=node({id})
-  	      MATCH (primary:#{primary_label})
+  	      START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : " ") + "
+  	      MATCH (primary:#{primary_label})" + (access_is_limited ? "-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
   	      RETURN Id(primary)
-  	      ", { :id => params[:id].to_i }, tx)
+  	      ", { :id => params[:id].to_i, :user_id => user_obj["id"] }, tx)
   	  else
   	  	LogTime.info("\n\nBMR: Updating by unique property, which is.. #{node_model.unique_property.to_s} ... value=#{params[:unique_property]}")
-  	  	result = CypherTools.execute_query_returning_scalar("
-  	      MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })
+  	  	result = CypherTools.execute_query_returning_scalar(
+          (access_is_limited ? "START u=node({user_id})" : "") + "
+  	      MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })" +
+          (access_is_limited ? "-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
   	      RETURN Id(primary)
-  	      ", { :unique_property => params[:unique_property] }, tx)
+  	      ", { :unique_property => params[:unique_property], :user_id => user_obj["id"] }, tx)
       end
   	else
-	  node_contents = params[@primary_label]
-	  now = Time.now.utc
-		
-	  if params[:id] != nil
-		parameters = { :id => params[:id].to_i, :now => now, :user => "#{cas_user = nil ? "default" : cas_user.to_s}" }
-		query_string = "
-		  START primary=node({id})
-		  MATCH (primary:#{primary_label})
-		  SET
-		    primary.modified_date = {now},
-		    primary.modified_by = {user},
-		    " + node_model.property_write_string("primary") + "
-		  RETURN Id(primary)"
-	  else
-		parameters = { :unique_property => params[:unique_property], :now => now, :user => "#{cas_user = nil ? "default" : cas_user.to_s}" }
-		query_string = "
-		  MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })
-		  SET
-		    primary.modified_date = {now},
-		    primary.modified_by = {user},
-		    " + node_model.property_write_string("primary") + "
-		  RETURN Id(primary)"
+  	  node_contents = params[@primary_label]
+  	  now = Time.now.utc
+  		
+      if params[:id] != nil
+        parameters = { :id => params[:id].to_i, :now => now, :user =>  user_obj["net_id"], :user_id => user_obj["id"] }
+        query_string = "
+        START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : " ") + "
+        MATCH (primary:#{primary_label})" + (access_is_limited ? "-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
+        SET
+        primary.modified_date = {now},
+        primary.modified_by = {user},
+        " + node_model.property_write_string("primary") + "
+        RETURN Id(primary)"
+      else
+        parameters = { :unique_property => params[:unique_property], :now => now, :user => user_obj["net_id"], :user_id => user_obj["id"] }
+        query_string =
+        (access_is_limited ? "START u=node({user_id})" : "") + "
+        MATCH (primary:#{primary_label} { " + node_model.unique_property.to_s + ": {unique_property} })" +
+        (access_is_limited ? "-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
+        SET
+        primary.modified_date = {now},
+        primary.modified_by = {user},
+        " + node_model.property_write_string("primary") + "
+        RETURN Id(primary)"
       end
 
       node_model.properties.each do |property|
 	    if node_contents.has_key?(property) && node_contents[property] != nil
-		  parameters[property] = node_contents[property]
-		else
-		  parameters[property] = nil
-		#  return { message: "Cannot modify #{primary_label} without specifying #{property}.", success: false }
-		end
+  		  parameters[property] = node_contents[property]
+  		else
+  		  parameters[property] = nil
+  		end
 	  end
 
 	  result = CypherTools.execute_query_returning_scalar(query_string, parameters, tx)
@@ -233,61 +315,62 @@ class ModelRepository
 	return { success: true, id: result }
   end
   
-  def write_relationship(id, relation, direction, params, params_key, tx)
+  def write_relationship(id, relation, direction, params, params_key, tx, user_obj)
+    LogTime.info "Writing relationship: " + relation.relation_name.to_s
     if direction == :outgoing
-	  number_of = relation.target_number
-	else
-	  number_of = relation.source_number
-	end
-	
-	delete_relationships(id, relation, direction, tx)
-	params_element = params[params_key]
-	
-	if number_of == :many
-	  if params_element != nil
-	    params_element.each do |node|
-	      write_relation_result = write_relationship_to_node(id, relation, direction, node, tx)
-	      if !write_relation_result[:success]
-	      	return write_relation_result
-	      end
-	    end
-	  end
-	elsif number_of == :one_or_zero
-	  if params_element != nil
-	    write_relation_result = write_relationship_to_node(id, relation, direction, params_element, tx)
-	    if !write_relation_result[:success]
-	      return write_relation_result
-	    end
-	  end
-	elsif number_of == :one
-	  if params_element == nil
-	    return { message: "#{primary_label.capitalize} must have #{params_key}.", success: false }
-	  end
-	  write_relation_result = write_relationship_to_node(id, relation, direction, params_element, tx)
-	  if !write_relation_result[:success]
-	    return write_relation_result
-	  end
-	end
-	return { success: true }
+  	  number_of = relation.target_number
+  	else
+  	  number_of = relation.source_number
+  	end
+  	
+  	delete_relationships(id, relation, direction, tx)
+  	params_element = params[params_key]
+  	
+  	if number_of == :many
+  	  if params_element != nil
+  	    params_element.each do |node|
+  	      write_relation_result = write_relationship_to_node(id, relation, direction, node, tx, user_obj)
+  	      if !write_relation_result[:success]
+  	      	return write_relation_result
+  	      end
+  	    end
+  	  end
+  	elsif number_of == :one_or_zero
+  	  if params_element != nil
+  	    write_relation_result = write_relationship_to_node(id, relation, direction, params_element, tx, user_obj)
+  	    if !write_relation_result[:success]
+  	      return write_relation_result
+  	    end
+  	  end
+  	elsif number_of == :one
+  	  if params_element == nil
+  	    return { message: "#{primary_label.capitalize} must have #{params_key}.", success: false }
+  	  end
+  	  write_relation_result = write_relationship_to_node(id, relation, direction, params_element, tx, user_obj)
+  	  if !write_relation_result[:success]
+  	    return write_relation_result
+  	  end
+  	end
+  	return { success: true }
   end
   
   def delete_relationships(id, relation, direction, tx)
   	relationship_name = relation.relation_name
     if direction == :outgoing
-	  other_node_label = relation.target_label
-	  match_string = "(primary:#{primary_label})-[r:#{relationship_name}]->(other:#{other_node_label})"
-	else
-	  other_node_label = relation.source_label
-	  match_string = "(other:#{other_node_label})-[r:#{relationship_name}]->(primary:#{primary_label})"
-	end
-    CypherTools.execute_query("
-	
-	  START primary=node({id})
-	  MATCH #{match_string}
-	  DELETE r
-	
-	", { :id => id }, tx
-	)
+  	  other_node_label = relation.target_label
+  	  match_string = "(primary:#{primary_label})-[r:#{relationship_name}]->(other:#{other_node_label})"
+  	else
+  	  other_node_label = relation.source_label
+  	  match_string = "(other:#{other_node_label})-[r:#{relationship_name}]->(primary:#{primary_label})"
+  	end
+      CypherTools.execute_query("
+  	
+  	  START primary=node({id})
+  	  MATCH #{match_string}
+  	  DELETE r
+  	
+  	", { :id => id }, tx
+  	)
   end
 
   def has_existing_source(target_start, target_match, relationship_name, parameters)
@@ -334,7 +417,7 @@ class ModelRepository
 	return (existing.length > 0)
   end
   
-  def write_relationship_to_node(id, relation, direction, params_element, tx)
+  def write_relationship_to_node(id, relation, direction, params_element, tx, user_obj)
   	relationship_name = relation.relation_name
   	parameters = {}
   	other_node_model = nil
@@ -369,8 +452,31 @@ class ModelRepository
         source_start = nil
       end
     end
-	property_write_string = relation.property_write_string(nil)
-	relation.properties.each do |property|
+
+    # You do *not* need write access to the related node in order to create a relationship to it,
+    # but you do need read access.
+    access_is_limited = !SecurityGoon.check_for_full_read(user_obj, other_node_model.label)
+    if access_is_limited
+      parameters[:user_id] = user_obj["id"]
+      if direction == :outgoing
+        if target_start != nil
+          target_start += ", u=node({user_id})"
+        else
+          target_start = "u=node({user_id})"
+        end
+        target_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+      else
+        if source_start != nil
+          source_start += ", u=node({user_id})"
+        else
+          source_start = "u=node({user_id})"
+        end
+        source_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+      end
+    end
+
+  	property_write_string = relation.property_write_string(nil)
+  	relation.properties.each do |property|
 	  if params_element.has_key?(property) && params_element[property] != nil
 	    parameters[property] = params_element[property]
 	  else
@@ -454,7 +560,7 @@ class ModelRepository
   
   #identifier may be either the numeric id of the node, or the unique property of the term.
   #identifier_is_id indicates which it is.
-  def read(params, cas_user)
+  def read(params, user_obj)
   	if params.has_key?(:id)
   	  identifier = params[:id]
   	  identifier_is_id = true
@@ -465,7 +571,7 @@ class ModelRepository
 
   	LogTime.info("identifier = #{identifier}, identifier_is_id = #{identifier_is_id}")
   	begin
-  	  primary_node = read_primary_node(identifier, identifier_is_id, cas_user)
+  	  primary_node = read_primary_node(identifier, identifier_is_id, user_obj)
   	rescue Exception => e
   	  if e.to_s == "One of the ids given was invalid."
   	  	return { message: "#{primary_label} not found.", success: false }
@@ -485,88 +591,105 @@ class ModelRepository
 	
 	model = GraphModel.instance.nodes[@primary_label]
 	model.outgoing.each do |relation|
-	  output[relation.name_to_source] = read_relationship(id, relation, :outgoing)
+	  output[relation.name_to_source] = read_relationship(id, relation, :outgoing, user_obj)
 	end
 	model.incoming.each do |relation|
-	  output[relation.name_to_target] = read_relationship(id, relation, :incoming)
+	  output[relation.name_to_target] = read_relationship(id, relation, :incoming, user_obj)
     end
 	
 	return output
   end
   
-  def read_primary_node(identifier, identifier_is_id, cas_user)
+  def read_primary_node(identifier, identifier_is_id, user_obj)
     node_model = GraphModel.instance.nodes[@primary_label]
-	output = nil
-	if identifier_is_id
-	  LogTime.info("Querying with id.")
-	  output = CypherTools.execute_query_into_hash_array("
-	    START n=node({id})
-		MATCH (n:" + node_model.label + ")
-		RETURN
-		n.created_date,
-		n.modified_date,
-		n.created_by,
-		n.modified_by,
-		" + node_model.property_string("n", cas_user != nil),
-		{ :id => identifier.to_i },
-		nil)
-	else
-	  LogTime.info("Querying without id.")
-	  output = CypherTools.execute_query_into_hash_array("
-		MATCH (n:" + node_model.label + ")
-		WHERE n." + node_model.unique_property + " = {unique_property}
-		RETURN
-		n.created_date,
-		n.modified_date,
-		n.created_by,
-		n.modified_by,
-		" + node_model.property_string("n", cas_user != nil),
-		{ :unique_property => identifier },
-		nil)
-	end
-	
-	if output.length > 0
-	  return output[0]
-	end
-	return nil
+  	output = nil
+
+    access_is_limited = !SecurityGoon.check_for_full_read(user_obj, @primary_label)
+    if access_is_limited
+      LogTime.info("Access limited.")
+    end
+
+  	if identifier_is_id
+  	  LogTime.info("Querying with id.")
+  	  output = CypherTools.execute_query_into_hash_array("
+  	    START n=node({id})" + (access_is_limited ? ", u=node({user_id})" : "") + "
+    		MATCH (n:" + node_model.label + ")" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
+    		RETURN
+    		n.created_date,
+    		n.modified_date,
+    		n.created_by,
+    		n.modified_by,
+    		" + node_model.property_string("n", user_obj != nil),
+  		{ :id => identifier.to_i, :user_id => user_obj["id"] },
+  		nil)
+  	else
+  	  LogTime.info("Querying without id.")
+  	  output = CypherTools.execute_query_into_hash_array(
+        (access_is_limited ? "START u=node({user_id})" : "") + "
+    		MATCH (n:" + node_model.label + ")" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
+    		WHERE n." + node_model.unique_property + " = {unique_property}
+    		RETURN
+    		n.created_date,
+    		n.modified_date,
+    		n.created_by,
+    		n.modified_by,
+    		" + node_model.property_string("n", user_obj != nil),
+  		{ :unique_property => identifier, :user_id => user_obj["id"] },
+  		nil)
+  	end
+  	
+  	if output.length > 0
+  	  return output[0]
+  	end
+  	return nil
   end
   
-  def read_relationship(id, relation, direction)
+  def read_relationship(id, relation, direction, user_obj)
+
     LogTime.info("Reading relation: " + relation.to_s)
-	relationship_name = relation.relation_name
-    if direction == :outgoing
-	  other_node_label = relation.target_label
-	  match_string = "(primary:#{primary_label})-[r:#{relationship_name}]->(other:#{other_node_label})"
-	  return_array = relation.target_number == :many #If this relationship is x-to-many, return an array.
-	else
-	  other_node_label = relation.source_label
-	  match_string = "(other:#{other_node_label})-[r:#{relationship_name}]->(primary:#{primary_label})"
-	  return_array = relation.source_number == :many #If this relationship is many-to-x, return an array.
-	end
-	
-	LogTime.info("return_array = " + return_array.to_s)
-	
-	other_node_model = GraphModel.instance.nodes[other_node_label]
-	  
+  	relationship_name = relation.relation_name
+      if direction == :outgoing
+  	  other_node_label = relation.target_label
+      other_node_model = GraphModel.instance.nodes[other_node_label]
+  	  match_string = "(primary:#{primary_label})-[r:#{relationship_name}]->(other:#{other_node_label})"
+  	  return_array = relation.target_number == :many #If this relationship is x-to-many, return an array.
+  	else
+  	  other_node_label = relation.source_label
+      other_node_model = GraphModel.instance.nodes[other_node_label]
+  	  match_string = "(other:#{other_node_label})-[r:#{relationship_name}]->(primary:#{primary_label})"
+  	  return_array = relation.source_number == :many #If this relationship is many-to-x, return an array.
+  	end
+
+    access_is_limited = !SecurityGoon.check_for_full_read(user_obj, other_node_label)
+    if access_is_limited
+      if direction==:outgoing
+        match_string = "(u)-[:HAS_ROLE]->(s:security_role)<-[:ALLOWS_ACCESS_WITH]-" + match_string
+      else
+        match_string = match_string + "-[:ALLOWS_ACCESS_WITH]->(s:security_role)<-[:HAS_ROLE]-(u)"
+      end
+    end
+  	
+  	LogTime.info("return_array = " + return_array.to_s)
+  	  
     output = CypherTools.execute_query_into_hash_array("
-	  START primary=node({id})
-	  MATCH #{match_string}
-	  RETURN
-	  other.created_date,
-	  other.modified_date,
-	  other.created_by,
-	  other.modified_by,
-	  " + other_node_model.property_string("other") + relation.property_string("r"),
-	  { :id => id },
+  	  START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : "") + "
+  	  MATCH #{match_string}
+  	  RETURN
+  	  other.created_date,
+  	  other.modified_date,
+  	  other.created_by,
+  	  other.modified_by,
+  	  " + other_node_model.property_string("other") + relation.property_string("r"),
+  	  { :id => id, :user_id => user_obj["id"] },
 	  nil)
-	  
-	if return_array
-	  return output
-	elsif output.length > 0
-	  return output[0]
-	else
-	  return nil
-	end
+  	  
+  	if return_array
+  	  return output
+  	elsif output.length > 0
+  	  return output[0]
+  	else
+  	  return nil
+  	end
   end
 
   def relations_block_deletion(id, relation, direction)
@@ -627,7 +750,7 @@ class ModelRepository
     return { success: true }
   end
 
-  def delete(params, cas_user)
+  def delete(params, user_obj)
   	if params.has_key?(:id)
   	  identifier = params[:id]
   	  identifier_is_id = true
@@ -636,16 +759,17 @@ class ModelRepository
   	  identifier_is_id = false
   	end
 
+    access_is_limited = !SecurityGoon.check_for_full_delete(user_obj, @primary_label)
     tx = CypherTools.start_transaction
 
   	#Since we will probably have to delete a bunch of relationships too, we go ahead and
   	#retrieve the node Id first.
   	if identifier_is_id
   	  id = CypherTools.execute_query_returning_scalar("
-  	  	START n=node({identifier})
-        MATCH (n:#{primary_label})
+  	  	START n=node({identifier})" + (access_is_limited ? ", u=node({user_id})" : "") + "
+        MATCH (n:#{primary_label})" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
         RETURN Id(n)
-  	  	", { :identifier => identifier.to_i }, tx
+  	  	", { :identifier => identifier.to_i, :user_id => user_obj["id"] }, tx
   	  )
   	  if id == nil
   	  	return { success: false, message: "Could not find #{primary_label} with id = " + 
@@ -653,10 +777,12 @@ class ModelRepository
   	  end
   	else
   	  node_model = GraphModel.instance.nodes[@primary_label]
-  	  id = CypherTools.execute_query_returning_scalar("
-        MATCH (n:#{primary_label} { " + node_model.unique_property + ": {unique_property} })
+  	  id = CypherTools.execute_query_returning_scalar(
+        (access_is_limited ? "START u=node({user_id})" : "") + "
+        MATCH (n:#{primary_label} { " + node_model.unique_property + ": {unique_property} })" +
+        (access_is_limited ? "-[:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr:security_role)<-[:HAS_ROLE]-(u:user)" : "") + "
         RETURN Id(n)
-  	  	", { :unique_property => identifier }, tx
+  	  	", { :unique_property => identifier, :user_id => user_obj["id"] }, tx
   	  )
   	  if id == nil
   	  	return { success: false, message: "Could not find #{primary_label} with " + 

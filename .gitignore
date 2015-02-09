@@ -3,3 +3,5 @@ config/secret_key.yml
 config/application.yml
 log/*
 .env.local
+tmp/pid/unicorn.pid
+.DS*

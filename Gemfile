@@ -36,6 +36,10 @@ gem 'elasticsearch'
 #gem 'mysql2'
 gem 'httparty'
 
+group :development, :test do
+  gem 'rspec-rails', '~> 3.0.0'
+end
+
 # Use ActiveModel has_secure_password
 # gem 'bcrypt-ruby', '~> 3.1.2'
 
@@ -50,3 +54,4 @@ gem 'puma'
 # gem 'debugger', group: [:development, :test]
 
 gem 'dotenv'
+gem 'aws-sdk', '2.0.8.pre'
