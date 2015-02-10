@@ -27,6 +27,9 @@ BIPortalDataService::Application.configure do
   # number of complex assets.
   config.assets.debug = true
 
+  config.cas_url = "https://login.cc.nd.edu/cas/"
+  config.huginn_url = "https://data-dev.cc.nd.edu/"
+
   # If set to false, Muninn will accept whatever it's told by the front end
   # about who's connecting to it. If set to true, it will require a CAS
   # proxy ticket.
