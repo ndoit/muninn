@@ -78,6 +78,9 @@ BIPortalDataService::Application.configure do
   # Use default logging formatter so that PID and timestamp are not suppressed.
   config.log_formatter = ::Logger::Formatter.new
 
+  config.cas_url = "https://login.cc.nd.edu/cas/"
+  config.huginn_url = "https://data.nd.edu/"
+
   # If set to false, Muninn will accept whatever it's told by the front end
   # about who's connecting to it. If set to true, it will require a CAS
   # proxy ticket.
