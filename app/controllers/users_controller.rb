@@ -29,7 +29,7 @@ class UsersController < GraphController
       role_hash["roles"] = []
       role_hash["roles"] << "Report Publisher"
 
-      if ( params[:netid] == 'afreda' )
+      if ( params[:netid] == 'afreda' or 'rsnodgra' )
         role_hash["roles"] << "Term Editor"
       end 
 
