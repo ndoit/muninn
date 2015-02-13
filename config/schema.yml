@@ -17,7 +17,6 @@ nodes:
     report:
         unique_property: name
         other_properties:
-            - office_owner
             - datasource
             - data_last_updated 
             - description
@@ -63,7 +62,9 @@ relationships:
         target_label: office
         source_label: 
             - report
-            - dataset    
+            - dataset
+        properties:
+            - stake   
     CONTAINS:
         target_label: term
         source_label: 
