@@ -20,7 +20,7 @@ nodes:
             - datasource
             - data_last_updated 
             - description
-            - embedJSON
+            - tableau_link
             - report_type
             - thumbnail_uri
     domain_tag:
