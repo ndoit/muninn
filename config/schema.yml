@@ -41,6 +41,8 @@ nodes:
             - iam_export_code
     user:
         unique_property: net_id
+        other_properties:
+            - admin_emeritus
 relationships:
     HAS_DOMAIN_TAG:
         source_label: report

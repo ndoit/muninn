@@ -27,6 +27,7 @@ class UsersController < GraphController
     begin
       role_hash = {}
       role_hash["roles"] = []
+      # with this line, EVERYONE can publish a report!
       role_hash["roles"] << "Report Publisher"
 
       if ( params[:netid] == 'afreda' or 'rsnodgra' )
