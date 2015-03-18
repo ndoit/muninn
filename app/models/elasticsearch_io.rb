@@ -11,6 +11,27 @@ require "httparty"
 class ElasticSearchIO
   include Singleton
 
+  def user_can_see_node(user_obj, node_name, label, allows_access_with)
+    LogTime.info("Checking node access: node_name = #{node_name.to_s}, label = #{label.to_s}, allows_access_with = #{allows_access_with.to_s}")
+    if SecurityGoon.check_for_full_read(user_obj, label)
+      return true
+    end
+    if allows_access_with != nil
+      allows_access_with.each do |role|
+        if user_obj["roles"].has_key?(role["name"])
+          return true
+        end
+      end
+    end
+    if label == "security_role" && user_obj["roles"].has_key?(node_name)
+      return true
+    end
+    if label == "user" && user_obj["net_id"] == node_name
+      return true
+    end
+    return false
+  end
+
   def convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
     data = hit["_source"]
     output_data = {}
@@ -21,22 +42,11 @@ class ElasticSearchIO
         output_items = []
         data[key].each do |item|
           if item.kind_of?(Hash) && item.has_key?("&label")
-            if !general_access.has_key?(item["&label"])
-              general_access[item["&label"]] = SecurityGoon.check_for_full_read(user_obj, item["&label"])
-            end
-            if general_access[item["&label"]]
+            model = GraphModel.instance.nodes[item["&label"].to_sym]
+            if user_can_see_node(user_obj, item[model.unique_property], item["&label"], item["&allows_access_with"])
               item.delete("&label")
               item.delete("&allows_access_with")
               output_items << item
-            elsif item.has_key?("&allows_access_with")
-              item["&allows_access_with"].each do |role|
-                if user_obj["roles"].has_key?(role["name"])
-                  item.delete("&label")
-                  item.delete("&allows_access_with")
-                  output_items << item
-                  break
-                end
-              end
             end
           else
             output_items << item
@@ -70,26 +80,16 @@ class ElasticSearchIO
     general_access = {}
     counts_by_type = {}
     search_result["hits"]["hits"].each do |hit|
-      if !general_access.has_key?(hit["_type"])
-        general_access[hit["_type"]] = SecurityGoon.check_for_full_read(user_obj, hit["_type"])
-      end
-      if general_access[hit["_type"]]
-        output << convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
-        if !counts_by_type.has_key?(hit["_type"])
-          counts_by_type[hit["_type"]] = 1
-        else
-          counts_by_type[hit["_type"]] += 1
-        end
-      elsif hit["_source"].has_key?("allows_access_with")
-        hit["_source"]["allows_access_with"].each do |role|
-          if user_obj["roles"].has_key?(role["name"])
-            output << convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
-            if !counts_by_type.has_key?(hit["_type"])
-              counts_by_type[hit["_type"]] = 1
-            else
-              counts_by_type[hit["_type"]] += 1
-            end
-            break
+      model = GraphModel.instance.nodes[hit["_type"].to_sym]
+      if model == nil
+        LogTime.info "No model found for type #{hit["_type"].to_s}."
+      else
+        if user_can_see_node(user_obj, hit["_source"][model.unique_property], hit["_type"], hit["_source"]["allows_access_with"])
+          output << convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
+          if !counts_by_type.has_key?(hit["_type"])
+            counts_by_type[hit["_type"]] = 1
+          else
+            counts_by_type[hit["_type"]] += 1
           end
         end
       end
@@ -107,7 +107,7 @@ class ElasticSearchIO
     end
   end
 
-  def update_nodes_with_data(label, data)
+  def update_nodes_with_data(label, data, update_related_nodes = true)
     LogTime.info("Loading data: " + data.to_s)
     data.each do |node|
       id = node["id"]
@@ -118,26 +118,34 @@ class ElasticSearchIO
       node_model.outgoing.each do |relation|
         target_model = GraphModel.instance.nodes[relation.target_label]
         related_nodes = CypherTools.execute_query_into_hash_array("
-
           START n=node({id})
           MATCH (n:" + label.to_s + ")-[r:" + relation.relation_name + "]->(other)
           OPTIONAL MATCH (other)-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
           RETURN id(other) AS id, sr.name AS allows_access_with, other." + target_model.unique_property + relation.property_string("r"),
           { :id => id }, nil)
         node[relation.name_to_source] = process_related_nodes(related_nodes, target_model.label)
+        if update_related_nodes
+          related_nodes.each do |related_node|
+            update_node(target_model.label, related_node["id"], false)
+          end
+        end
       end
 
       LogTime.info("Incoming relations: " + node_model.incoming.to_s)
       node_model.incoming.each do |relation|
         source_model = GraphModel.instance.nodes[relation.source_label]
         related_nodes = CypherTools.execute_query_into_hash_array("
-
           START n=node({id})
           MATCH (n:" + label.to_s + ")<-[r:" + relation.relation_name + "]-(other)
           OPTIONAL MATCH (other)-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
           RETURN id(other) AS id, sr.name AS allows_access_with, other." + source_model.unique_property + relation.property_string("r"),
           { :id => id }, nil)
         node[relation.name_to_target] = process_related_nodes(related_nodes, source_model.label)
+        if update_related_nodes
+          related_nodes.each do |related_node|
+            update_node(source_model.label, related_node["id"], false)
+          end
+        end
       end
 
       LogTime.info("Updating node: " + id.to_s)
@@ -285,8 +293,41 @@ class ElasticSearchIO
     end
   end
 
-  def delete_node(label, id)
+  def delete_node(label, id, update_related_nodes = true)
     LogTime.info("Delete node " + id.to_s + " of type: #{label}")
+    uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/" + id.to_s)
+
+    if update_related_nodes
+      LogTime.info("Searching for related nodes.")
+      request = Net::HTTP::Get.new(uri.path)
+      response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+        http.request(request)
+      end
+      if !(response.kind_of? Net::HTTPSuccess)
+        return { success: false, message: response.message }
+      end
+      response = JSON.parse(response.body)
+      if !response["found"]
+        LogTime.info("Failed to find in response: #{response.to_s}")
+        return { success: false, message: "Record not found in ElasticSearch." }
+      end
+      target_obj = response["_source"]
+      ids_to_check = {}
+      target_obj.keys.each do |key|
+        if target_obj[key].is_a?(Array)
+          target_obj[key].each do |possibility|
+            if possibility.has_key?("id") && possibility.has_key?("&label")
+              ids_to_check[possibility["id"]] = possibility["&label"]
+            end
+          end
+        elsif target_obj[key].is_a?(Hash) && target_obj[key].has_key?("id") && target_obj[key].has_key?("&label")
+          ids_to_check[target_obj[key]["id"]] = target_obj[key]["&label"]
+        end
+      end
+      ids_to_check.keys.each do |id|
+        update_node(ids_to_check[id], id, false)
+      end
+    end
 
     uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/" + id.to_s)
     request = Net::HTTP::Delete.new(uri.path)
@@ -304,7 +345,7 @@ class ElasticSearchIO
     end
   end
 
-  def update_node(label, id)
+  def update_node(label, id, update_related_nodes = true)
     LogTime.info("Update node " + id.to_s + " of type: #{label}")
 
     node_model = GraphModel.instance.nodes[label.to_sym]
@@ -319,7 +360,7 @@ class ElasticSearchIO
     nil)
 
     LogTime.info("Data retrieved, loading to search engine.")
-    return update_nodes_with_data(label, node_data)
+    return update_nodes_with_data(label, node_data, update_related_nodes)
   end
 
   def update_all_nodes(label)

@@ -609,31 +609,57 @@ class ModelRepository
       LogTime.info("Access limited.")
     end
 
+    match_string = "MATCH (n:#{node_model.label})"
+    if access_is_limited
+      match_string += "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)"
+    end
+    if identifier_is_id
+      start_string = "START n=node({id})" + (access_is_limited ? ", u=node({user_id})" : "")
+      where_string = ""
+    else
+      start_string = (access_is_limited ? "START u=node({user_id})" : "")
+      where_string = "WHERE n.#{node_model.unique_property} = {unique_property}"
+    end
+    return_string = "RETURN
+      n.created_date,
+      n.modified_date,
+      n.created_by,
+      n.modified_by,
+      #{node_model.property_string("n",user_obj!=nil)}"
+
+    query_string = "
+      #{start_string}
+      #{match_string}
+      #{where_string}
+      #{return_string}
+      "
+    if access_is_limited && @primary_label == :security_role
+      # Regardless of access, you can always see security roles to which you belong.
+      query_string += "
+      UNION
+      #{start_string}
+      MATCH (n:security_role)<-[:HAS_ROLE]-(u)
+      #{where_string}
+      #{return_string}"
+    end
+
+    if access_is_limited && @primary_label == :user && (!identifier_is_id || identifier == user_obj["id"])
+      # Regardless of access, you can always see yourself.
+      query_string += "
+      UNION
+      START n=node({user_id})
+      #{where_string}
+      #{return_string}"
+    end
+
   	if identifier_is_id
   	  LogTime.info("Querying with id.")
-  	  output = CypherTools.execute_query_into_hash_array("
-  	    START n=node({id})" + (access_is_limited ? ", u=node({user_id})" : "") + "
-    		MATCH (n:" + node_model.label + ")" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
-    		RETURN
-    		n.created_date,
-    		n.modified_date,
-    		n.created_by,
-    		n.modified_by,
-    		" + node_model.property_string("n", user_obj != nil),
+  	  output = CypherTools.execute_query_into_hash_array(query_string,
   		{ :id => identifier.to_i, :user_id => user_obj["id"] },
   		nil)
   	else
   	  LogTime.info("Querying without id.")
-  	  output = CypherTools.execute_query_into_hash_array(
-        (access_is_limited ? "START u=node({user_id})" : "") + "
-    		MATCH (n:" + node_model.label + ")" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
-    		WHERE n." + node_model.unique_property + " = {unique_property}
-    		RETURN
-    		n.created_date,
-    		n.modified_date,
-    		n.created_by,
-    		n.modified_by,
-    		" + node_model.property_string("n", user_obj != nil),
+  	  output = CypherTools.execute_query_into_hash_array(query_string,
   		{ :unique_property => identifier, :user_id => user_obj["id"] },
   		nil)
   	end
@@ -645,7 +671,6 @@ class ModelRepository
   end
   
   def read_relationship(id, relation, direction, user_obj)
-
     LogTime.info("Reading relation: " + relation.to_s)
   	relationship_name = relation.relation_name
       if direction == :outgoing
@@ -661,27 +686,51 @@ class ModelRepository
   	end
 
     access_is_limited = !SecurityGoon.check_for_full_read(user_obj, other_node_label)
+    start_string = "START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : "")
+
     if access_is_limited
       if direction==:outgoing
-        match_string = "(u)-[:HAS_ROLE]->(s:security_role)<-[:ALLOWS_ACCESS_WITH]-" + match_string
+        role_match_string = match_string + "<-[:HAS_ROLE]-(u)"
+        secured_match_string = "(u)-[:HAS_ROLE]->(s:security_role)<-[:ALLOWS_ACCESS_WITH]-" + match_string
       else
-        match_string = match_string + "-[:ALLOWS_ACCESS_WITH]->(s:security_role)<-[:HAS_ROLE]-(u)"
+        role_match_string = "(u)-[:HAS_ROLE]->" + match_string
+        secured_match_string = match_string + "-[:ALLOWS_ACCESS_WITH]->(s:security_role)<-[:HAS_ROLE]-(u)"
       end
+    else
+      secured_match_string = match_string
     end
+    return_string = "RETURN
+      other.created_date,
+      other.modified_date,
+      other.created_by,
+      other.modified_by,
+      " + other_node_model.property_string("other") + relation.property_string("r")
   	
   	LogTime.info("return_array = " + return_array.to_s)
+
+    query_string = "
+      #{start_string}
+      MATCH #{secured_match_string}
+      #{return_string}"
+    if access_is_limited && other_node_label == :security_role
+      # Regardless of access, you can always see security roles to which you belong.
+      query_string += "
+      UNION
+      #{start_string}
+      MATCH #{role_match_string}
+      #{return_string}"
+    end
+    if access_is_limited && other_node_label == :user
+      # Regardless of access, you can always see yourself.
+      query_string += "
+      UNION
+      START primary=node({id}), other=node({user_id})
+      MATCH #{match_string}
+      #{return_string}"
+    end
   	  
-    output = CypherTools.execute_query_into_hash_array("
-  	  START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : "") + "
-  	  MATCH #{match_string}
-  	  RETURN
-  	  other.created_date,
-  	  other.modified_date,
-  	  other.created_by,
-  	  other.modified_by,
-  	  " + other_node_model.property_string("other") + relation.property_string("r"),
-  	  { :id => id, :user_id => user_obj["id"] },
-	  nil)
+    output = CypherTools.execute_query_into_hash_array(query_string,
+  	  { :id => id, :user_id => user_obj["id"] }, nil)
   	  
   	if return_array
   	  return output
