@@ -263,7 +263,8 @@ class ElasticSearchIO
     end
     GraphModel.instance.nodes.values.each do |node_model|
       LogTime.info("Re-creating search elements of type: #{node_model}")
-      update_result = update_all_nodes(node_model.label)
+      update_result = update_all_nodes(node_model.label, false)
+      # We don't bother updating related nodes, because everything's going to get rebuilt anyhow.
       if !update_result[:success]
         return update_result
       end
@@ -363,7 +364,7 @@ class ElasticSearchIO
     return update_nodes_with_data(label, node_data, update_related_nodes)
   end
 
-  def update_all_nodes(label)
+  def update_all_nodes(label, update_related_nodes = true)
     LogTime.info("Update all nodes of type: #{label}")
 
     node_model = GraphModel.instance.nodes[label.to_sym]
@@ -377,7 +378,7 @@ class ElasticSearchIO
     nil)
 
     LogTime.info("Data retrieved, loading to search engine.")
-    return update_nodes_with_data(label, node_data)
+    return update_nodes_with_data(label, node_data, update_related_nodes)
   end
 
 
