@@ -453,6 +453,19 @@ def execute_tests
     )
 
   # And deleting a report...
+  response = TestScript.delete("/reports/Foo?cas_user=caesar",data)
+  if response.code != 500 # This should fail, Caesar doesn't have access to delete this report.
+    puts "FAILED: Delete Foo as caesar got response code #{response.code}."
+    my_fails += 1
+  else
+    puts "SUCCESS: Delete Foo as caesar was denied."
+  end
+
+  my_fails += validate_get(
+    "/reports/Foo?cas_user=mark_antony",
+    { report: { name: "Foo", description: "Foo Report." } }
+    )
+
   response = TestScript.delete("/reports/Bar?cas_user=cleopatra",data)
   if response.code != 500 # This should fail, Cleopatra doesn't have access to delete this report.
     puts "FAILED: Delete Bar as cleopatra got response code #{response.code}."
@@ -479,9 +492,34 @@ def execute_tests
     { success: false }
     )
 
-  # And creating a report, which puts the data back like it was.
+  # ...and creating a report, which puts the data back like it was.
   # Notice that we do *not* include the Ingstone security role this time. It should be added
-  # automatically because that is the role allowing caesar to create it.
+  # automatically because that is the role allowing caesar to create Bar.
+  data = {
+    body: {
+      report: {
+        name: "Bar",
+        description: "Bar Report."
+      },
+      terms: [
+        { name: "Fall" },
+        { name: "Spring" }
+      ]
+    }
+  }
+  response = TestScript.post("/reports?cas_user=cleopatra",data)
+  if response.code != 500 # This should fail, Cleopatra doesn't have access to create reports.
+    puts "FAILED: Create Bar as cleopatra got response code #{response.code}."
+    my_fails += 1
+  else
+    puts "SUCCESS: Create Bar as cleopatra was denied."
+  end
+
+  my_fails += validate_get(
+    "/reports/Bar?cas_user=mark_antony",
+    { success: false }
+    )
+
   data = {
     body: {
       report: {
