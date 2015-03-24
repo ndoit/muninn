@@ -157,6 +157,7 @@ def prepare_environment
 end
 
 def compare_items(correct, actual)
+  #puts "Comparing #{correct.to_s} to #{actual.to_s}..."
   if correct == nil && actual != nil
     return { :success => false, :message => "Expected nil, got #{actual.to_s}." }
   end
@@ -186,7 +187,7 @@ end
 
 def compare_hashes(correct, actual)
   correct.keys.each do |correct_key|
-    result = compare_items(correct[correct_key.to_s], actual[correct_key])
+    result = compare_items(correct[correct_key], actual[correct_key.to_s])
     if !result[:success]
       return result
     end
@@ -309,7 +310,7 @@ def execute_tests
   validate_get(
     "/security_roles?cas_user=dick",
     { results: [
-      { data: { name: "Rockand", terms: [ { name: "Fall" } ], reports: [ { name: "Foo" } ] }, users: [ { name: "dick" } ] }
+      { data: { name: "Rockand", terms: [ { name: "Fall" } ], reports: [ { name: "Foo" } ], users: [ { net_id: "dick" } ] } }
       ] }
     )
   validate_get(
@@ -343,7 +344,7 @@ def execute_tests
   validate_get(
     "/security_roles?cas_user=dick",
     { results: [
-      { data: { name: "Rockand", terms: [ { name: "Fall" } ], reports: [ { name: "Foo" } ] }, users: [ { name: "dick" } ] }
+      { data: { name: "Rockand", terms: [ { name: "Fall" } ], reports: [ { name: "Foo" } ], users: [ { net_id: "dick" } ] } }
       ] }
     )
   validate_get(
