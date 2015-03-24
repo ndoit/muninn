@@ -478,7 +478,13 @@ class ModelRepository
   	property_write_string = relation.property_write_string(nil)
   	relation.properties.each do |property|
 	  if params_element.has_key?(property) && params_element[property] != nil
-	    parameters[property] = params_element[property]
+      if relationship_name == "ALLOWS_ACCESS_WITH" && property == "allow_update_and_delete"
+        # Unfortunate but necessary hack. JSON parsers aren't always consistent about whether they send bools
+        # as true/false or "true"/"false".
+        parameters[property] = (params_element[property] == true) || (params_element[property] == "true")
+      else
+	     parameters[property] = params_element[property]
+      end
 	  else
 	  	return { message: "Cannot add #{relationship_name} connection without specifying #{property}.", success: false }
 	  end
