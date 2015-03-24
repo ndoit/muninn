@@ -537,7 +537,7 @@ def execute_tests
     puts "FAILED: Could not create report Bar as caesar. #{JSON.parse(response.body)["message"]}"
     my_fails += 1
   else
-    puts "SUCCESS: Create report Bar as caesar was allowed."
+    puts "SUCCESS: Create Bar as caesar was allowed."
   end
 
   my_fails += validate_get(
