@@ -119,8 +119,8 @@ class ElasticSearchIO
         target_model = GraphModel.instance.nodes[relation.target_label]
         related_nodes = CypherTools.execute_query_into_hash_array("
           START n=node({id})
-          MATCH (n:" + label.to_s + ")-[r:" + relation.relation_name + "]->(other)
-          OPTIONAL MATCH (other)-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
+          MATCH (n:" + label.to_s + ")-[r:" + relation.relation_name + "]->(other:" + target_model.label.to_s + ")
+          OPTIONAL MATCH (other:" + target_model.label.to_s + ")-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
           RETURN id(other) AS id, sr.name AS allows_access_with, other." + target_model.unique_property + relation.property_string("r"),
           { :id => id }, nil)
         node[relation.name_to_source] = process_related_nodes(related_nodes, target_model.label)
@@ -136,8 +136,8 @@ class ElasticSearchIO
         source_model = GraphModel.instance.nodes[relation.source_label]
         related_nodes = CypherTools.execute_query_into_hash_array("
           START n=node({id})
-          MATCH (n:" + label.to_s + ")<-[r:" + relation.relation_name + "]-(other)
-          OPTIONAL MATCH (other)-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
+          MATCH (n:" + label.to_s + ")<-[r:" + relation.relation_name + "]-(other:" + source_model.label.to_s + ")
+          OPTIONAL MATCH (other:" + source_model.label.to_s + ")-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
           RETURN id(other) AS id, sr.name AS allows_access_with, other." + source_model.unique_property + relation.property_string("r"),
           { :id => id }, nil)
         node[relation.name_to_target] = process_related_nodes(related_nodes, source_model.label)
@@ -173,7 +173,7 @@ class ElasticSearchIO
     output_nodes = {}
     related_nodes.each do |node|
       if output_nodes.has_key?(node["id"])
-        if node["&allows_access_with"] != nil
+        if node["allows_access_with"] != nil
           output_nodes[node["id"]]["&allows_access_with"] << { "name" => node["allows_access_with"] }
         end
       else
@@ -182,7 +182,7 @@ class ElasticSearchIO
         node.keys.each do |key|
           if key=="allows_access_with"
             if node[key] != nil
-              new_node["&allows_access_with"] = [ node[key] ]
+              new_node["&allows_access_with"] = [ { "name" => node[key] } ]
             else
               new_node["&allows_access_with"] = []
             end

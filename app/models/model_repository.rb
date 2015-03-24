@@ -681,7 +681,7 @@ class ModelRepository
   	else
   	  other_node_label = relation.source_label
       other_node_model = GraphModel.instance.nodes[other_node_label]
-  	  match_string = "(other:#{other_node_label})-[r:#{relationship_name}]->(primary:#{primary_label})"
+      match_string = "(primary:#{primary_label})<-[r:#{relationship_name}]-(other:#{other_node_label})"
   	  return_array = relation.source_number == :many #If this relationship is many-to-x, return an array.
   	end
 
@@ -689,11 +689,16 @@ class ModelRepository
     start_string = "START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : "")
 
     if access_is_limited
-      if direction==:outgoing
-        role_match_string = match_string + "<-[:HAS_ROLE]-(u)"
-        secured_match_string = "(u)-[:HAS_ROLE]->(s:security_role)<-[:ALLOWS_ACCESS_WITH]-" + match_string
+      if other_node_label == :security_role
+        if id == user_obj["id"] && relationship_name == "HAS_ROLE" && direction == :outgoing
+          role_match_string = match_string
+        else
+          role_match_string = match_string + "<-[:HAS_ROLE]-(u)"
+        end
+      end
+      if primary_label == :security_role && relationship_name == "ALLOWS_ACCESS_WITH" && direction == :incoming
+        secured_match_string = "(u)-[:HAS_ROLE]->#{match_string}"
       else
-        role_match_string = "(u)-[:HAS_ROLE]->" + match_string
         secured_match_string = match_string + "-[:ALLOWS_ACCESS_WITH]->(s:security_role)<-[:HAS_ROLE]-(u)"
       end
     else
