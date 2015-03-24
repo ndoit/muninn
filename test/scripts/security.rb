@@ -566,6 +566,7 @@ fails += bulk_export_and_import
 
 fails += execute_tests
 
+fails += delete_everything
 
 if fails > 0
   puts "\n************************** #{fails} TESTS FAILED ! ! ! **************************"
