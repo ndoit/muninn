@@ -51,16 +51,6 @@ def compare_hashes(correct, actual)
   return { :success => true }
 end
 
-def filter_hash(correct, actual)
-  output = {}
-  correct.keys.each do |key|
-    if actual.has_key?(key.to_s)
-      output[key] = actual[key.to_s]
-    end
-  end
-  return output
-end
-
 def compare_arrays(correct, actual)
   correct.each do |correct_item|
     match_found = false
