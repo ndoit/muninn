@@ -356,32 +356,6 @@ def execute_tests
     { success: false }
     )
 
-  # Test searches.
-  my_fails += validate_get(
-    "/reports?cas_user=cleopatra",
-    { results: [
-      { data: { name: "Foo", terms: [ { name: "Fall" } ], allows_access_with: [ { name: "Rockand" } ] } }
-      ] }
-    )
-  my_fails += validate_get(
-    "/terms?cas_user=cleopatra",
-    { results: [
-      { data: { name: "Fall", reports: [ { name: "Foo" } ], allows_access_with: [ { name: "Rockand" } ] } }
-      ] }
-    )
-  my_fails += validate_get(
-    "/security_roles?cas_user=cleopatra",
-    { results: [
-      { data: { name: "Rockand", terms: [ { name: "Fall" } ], reports: [ { name: "Foo" } ], users: [ { net_id: "cleopatra" } ] } }
-      ] }
-    )
-  my_fails += validate_get(
-    "/users?cas_user=cleopatra",
-    { results: [
-      { data: { net_id: "cleopatra", security_roles: [ { name: "Rockand" } ] } }
-      ] }
-    )
-
   # Now we play with updating a report description...
   my_fails += validate_put(
     "/reports/Foo?cas_user=caesar",
@@ -446,6 +420,13 @@ def execute_tests
     "/reports/Bar?cas_user=mark_antony",
     { success: false }
     )
+  sleep(3) # Give Elasticsearch a chance to process the delete.
+  my_fails += validate_get(
+    "/reports?cas_user=caesar",
+    { results: [
+      { data: { name: "Foo", terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Rockand" } ] } }
+      ] }
+    )
 
   # ...and creating a report, which puts the data back like it was.
   # Notice that we do *not* include the Ingstone security role this time. It should be added
@@ -471,6 +452,47 @@ def execute_tests
     "/reports/Bar?cas_user=mark_antony",
     { report: { name: "Bar", description: "Bar Report." } }
     )
+  sleep(3) # Give Elasticsearch a chance to process the post.
+
+  # And finally, we test searching.
+  my_fails += validate_get(
+    "/reports?cas_user=cleopatra",
+    { results: [
+      { data: { name: "Foo", terms: [ { name: "Fall" } ], allows_access_with: [ { name: "Rockand" } ] } }
+      ] }
+    )
+  my_fails += validate_get(
+    "/reports?cas_user=caesar",
+    { results: [
+      { data: { name: "Foo", terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Rockand" } ] } },
+      { data: { name: "Bar", terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Ingstone" } ] } }
+      ] }
+    )
+  my_fails += validate_get(
+    "/reports?cas_user=mark_antony",
+    { results: [
+      { data: { name: "Foo", terms: [ { name: "Spring" } ], allows_access_with: [ ] } },
+      { data: { name: "Bar", terms: [ { name: "Spring" } ], allows_access_with: [ { name: "Ingstone" } ] } }
+      ] }
+    )
+  my_fails += validate_get(
+    "/terms?cas_user=cleopatra",
+    { results: [
+      { data: { name: "Fall", reports: [ { name: "Foo" } ], allows_access_with: [ { name: "Rockand" } ] } }
+      ] }
+    )
+  my_fails += validate_get(
+    "/security_roles?cas_user=cleopatra",
+    { results: [
+      { data: { name: "Rockand", terms: [ { name: "Fall" } ], reports: [ { name: "Foo" } ], users: [ { net_id: "cleopatra" } ] } }
+      ] }
+    )
+  my_fails += validate_get(
+    "/users?cas_user=cleopatra",
+    { results: [
+      { data: { net_id: "cleopatra", security_roles: [ { name: "Rockand" } ] } }
+      ] }
+    )
 
   return my_fails
 end
@@ -482,7 +504,7 @@ def rebuild_search_index
     :should_succeed
     )
   if output == 0
-    sleep(10) # Give Elasticsearch a chance to finish processing.
+    sleep(3) # Give Elasticsearch a chance to process the rebuild.
   end
   return output
 end
@@ -511,7 +533,7 @@ def bulk_export_and_import
     return 1
   end
   puts "SUCCESS: Bulk import records."
-  sleep(10) # Give Elasticsearch a chance to finish processing.
+  sleep(3) # Give Elasticsearch a chance to process the import.
   return 0
 end
 
