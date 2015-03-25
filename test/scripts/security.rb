@@ -545,10 +545,10 @@ fails += bulk_export_and_import
 
 fails += execute_tests
 
-fails += delete_everything
-
 if fails > 0
   puts "\n************************** #{fails} TEST#{fails > 1 ? "S" : ""} FAILED ! ! ! **************************"
+  # We don't delete everything if a test fails. That makes it easier to figure out what's broke.
 else
   puts "\nAll tests passed."
+  delete_everything
 end
