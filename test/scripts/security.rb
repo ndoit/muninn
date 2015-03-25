@@ -210,30 +210,27 @@ def prepare_environment_with_direct_calls
 
   my_fails += validate_post(
     "/users?admin=true",
-    {
-      user: {
-        net_id: "cleopatra"
-      }
-    },
+    { user: { net_id: "cleopatra" } },
     :should_succeed
   )
 
   my_fails += validate_post(
     "/users?admin=true",
-    {
-      user: {
-        net_id: "caesar"
-      }
-    },
+    { user: { net_id: "caesar" } },
     :should_succeed
   )
 
   my_fails += validate_post(
     "/users?admin=true",
+    { user: { net_id: "mark_antony" } },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/security_roles?admin=true",
     {
-      user: {
-        net_id: "mark_antony"
-      }
+      security_role: { name: "Rockand" },
+      users: [ { net_id: "cleopatra" }, { net_id: "caesar" } ]
     },
     :should_succeed
   )
@@ -241,33 +238,8 @@ def prepare_environment_with_direct_calls
   my_fails += validate_post(
     "/security_roles?admin=true",
     {
-      security_role: {
-        name: "Rockand"
-      },
-      users: [
-        { net_id: "cleopatra" },
-        { net_id: "caesar" }
-      ]
-    },
-    :should_succeed
-  )
-
-  my_fails += validate_post(
-    "/security_roles?admin=true",
-    {
-      security_role: {
-        name: "Ingstone",
-        read_access_to: [
-          "report"
-        ],
-        create_access_to: [
-          "report"
-        ]
-      },
-      users: [
-        { net_id: "caesar" },
-        { net_id: "mark_antony" }
-      ]
+      security_role: { name: "Ingstone", read_access_to: [ "report" ], create_access_to: [ "report" ] },
+      users: [ { net_id: "caesar" }, { net_id: "mark_antony" } ]
     },
     :should_succeed
   )
@@ -275,12 +247,8 @@ def prepare_environment_with_direct_calls
   my_fails += validate_post(
     "/terms?admin=true",
     {
-      term: {
-        name: "Fall"
-      },
-      allows_access_with: [
-        { name: "Rockand", allow_update_and_delete: false }
-      ]
+      term: { name: "Fall" },
+      allows_access_with: [ { name: "Rockand", allow_update_and_delete: false } ]
     },
     :should_succeed
   )
@@ -288,12 +256,8 @@ def prepare_environment_with_direct_calls
   my_fails += validate_post(
     "/terms?admin=true",
     {
-      term: {
-        name: "Spring"
-      },
-      allows_access_with: [
-        { name: "Ingstone", allow_update_and_delete: false }
-      ]
+      term: { name: "Spring" },
+      allows_access_with: [ { name: "Ingstone", allow_update_and_delete: false } ]
     },
     :should_succeed
   )
@@ -301,11 +265,8 @@ def prepare_environment_with_direct_calls
   my_fails += validate_post(
     "/terms?admin=true",
     {
-      term: {
-        name: "Summer"
-      },
-      allows_access_with: [
-      ]
+      term: { name: "Summer" },
+      allows_access_with: [ ]
     },
     :should_succeed
   )
@@ -313,18 +274,9 @@ def prepare_environment_with_direct_calls
   my_fails += validate_post(
     "/reports?admin=true",
     {
-      report: {
-        name: "Foo",
-        description: "Foo Report."
-      },
-      terms: [
-        { name: "Fall" },
-        { name: "Spring" },
-        { name: "Summer" }
-      ],
-      allows_access_with: [
-        { name: "Rockand", allow_update_and_delete: false }
-      ]
+      report: { name: "Foo", description: "Foo Report." },
+      terms: [ { name: "Fall" }, { name: "Spring" }, { name: "Summer" } ],
+      allows_access_with: [ { name: "Rockand", allow_update_and_delete: false } ]
     },
     :should_succeed
   )
@@ -332,17 +284,9 @@ def prepare_environment_with_direct_calls
   my_fails += validate_post(
     "/reports?admin=true",
     {
-      report: {
-        name: "Bar",
-        description: "Bar Report."
-      },
-      terms: [
-        { name: "Fall" },
-        { name: "Spring" }
-      ],
-      allows_access_with: [
-        { name: "Ingstone", allow_update_and_delete: true }
-      ]
+      report: { name: "Bar", description: "Bar Report." },
+      terms: [ { name: "Fall" }, { name: "Spring" } ],
+      allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true } ]
     },
     :should_succeed
   )
@@ -508,16 +452,7 @@ def execute_tests
   # automatically because that is the role allowing caesar to create Bar.
   my_fails += validate_post(
     "/reports?cas_user=cleopatra",
-    {
-      report: {
-        name: "Bar",
-        description: "Bar Report."
-      },
-      terms: [
-        { name: "Fall" },
-        { name: "Spring" }
-      ]
-    },
+    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ] },
     :should_fail
     )
 
@@ -528,16 +463,7 @@ def execute_tests
 
   my_fails += validate_post(
     "/reports?cas_user=caesar",
-    {
-      report: {
-        name: "Bar",
-        description: "Bar Report."
-      },
-      terms: [
-        { name: "Fall" },
-        { name: "Spring" }
-      ]
-    },
+    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ] },
     :should_succeed
     )
 
@@ -609,7 +535,7 @@ fails += execute_tests
 fails += delete_everything
 
 if fails > 0
-  puts "\n************************** #{fails} TESTS FAILED ! ! ! **************************"
+  puts "\n************************** #{fails} TEST#{fails > 1 ? "S" : ""} FAILED ! ! ! **************************"
 else
   puts "\nAll tests passed."
 end
