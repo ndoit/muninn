@@ -414,7 +414,7 @@ def execute_tests
   my_fails += validate_get(
     "/reports?cas_user=caesar",
     { results: [
-      { data: { name: "Foo", terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Rockand" } ] } }
+      { data: { name: "Foo", description: "Foo Report.", terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Rockand" } ] } }
       ] }
     )
 
@@ -532,6 +532,7 @@ end
 fails = 0
 
 fails += delete_everything
+
 fails += prepare_environment_with_direct_calls
 
 fails += execute_tests
