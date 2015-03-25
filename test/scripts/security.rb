@@ -1,198 +1,13 @@
 # This script should be run on localhost in a dev env.
 # It tests that security works.
 # WARNING! Script starts by blowing away the graph. Don't run it if you care about keeping your data.
-# NEVER EVER run in prod.
 
 require "httparty"
+require "active_support/core_ext"
 
 class TestScript
   include HTTParty
   base_uri "http://localhost:3000"
-end
-
-def delete_everything
-  response = TestScript.delete("/bulk/NoSeriouslyIMeanIt?admin=true")
-  if response.code == 200
-    puts "SUCCESS: Bulk delete."
-    return 0
-  else
-    puts "FAILED: Bulk delete. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-end
-
-def prepare_environment_with_direct_calls
-  data = {
-    body: {
-      user: {
-        net_id: "cleopatra"
-      }
-    }
-  }
-  response = TestScript.post("/users?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load user cleopatra. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      user: {
-        net_id: "caesar"
-      }
-    }
-  }
-  response = TestScript.post("/users?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load user caesar. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      user: {
-        net_id: "mark_antony"
-      }
-    }
-  }
-  response = TestScript.post("/users?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load user mark_antony. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      security_role: {
-        name: "Rockand"
-      },
-      users: [
-        { net_id: "cleopatra" },
-        { net_id: "caesar" }
-      ]
-    }
-  }
-  response = TestScript.post("/security_roles?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load security_role Rockand. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      security_role: {
-        name: "Ingstone",
-        read_access_to: [
-          "report"
-        ],
-        create_access_to: [
-          "report"
-        ]
-      },
-      users: [
-        { net_id: "caesar" },
-        { net_id: "mark_antony" }
-      ]
-    }
-  }
-  response = TestScript.post("/security_roles?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load security_role Ingstone. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      term: {
-        name: "Fall"
-      },
-      allows_access_with: [
-        { name: "Rockand", allow_update_and_delete: false }
-      ]
-    }
-  }
-  response = TestScript.post("/terms?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load term Fall. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      term: {
-        name: "Spring"
-      },
-      allows_access_with: [
-        { name: "Ingstone", allow_update_and_delete: false }
-      ]
-    }
-  }
-  response = TestScript.post("/terms?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load term Spring. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      term: {
-        name: "Summer"
-      },
-      allows_access_with: [
-      ]
-    }
-  }
-  response = TestScript.post("/terms?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load term Summer. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      report: {
-        name: "Foo",
-        description: "Foo Report."
-      },
-      terms: [
-        { name: "Fall" },
-        { name: "Spring" },
-        { name: "Summer" }
-      ],
-      allows_access_with: [
-        { name: "Rockand", allow_update_and_delete: false }
-      ]
-    }
-  }
-  response = TestScript.post("/reports?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load report Foo. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  data = {
-    body: {
-      report: {
-        name: "Bar",
-        description: "Bar Report."
-      },
-      terms: [
-        { name: "Fall" },
-        { name: "Spring" }
-      ],
-      allows_access_with: [
-        { name: "Ingstone", allow_update_and_delete: true }
-      ]
-    }
-  }
-  response = TestScript.post("/reports?admin=true",data)
-  if response.code == 500
-    puts "FAILED: Load report Bar. #{JSON.parse(response.body)["message"]}"
-    return 1
-  end
-
-  puts "SUCCESS: Load data."
-  return 0
 end
 
 def compare_items(correct, actual)
@@ -291,13 +106,248 @@ def validate_get(url, map)
     actual = body[map_key.to_s]
     comparison = compare_items(correct, actual)
     if !comparison[:success]
-      puts "FAILED: Query #{url}. Mismatch on #{map_key}: #{comparison[:message]}"
+      puts "FAILED: Get #{url}. Mismatch on #{map_key}: #{comparison[:message]}"
       return 1
     end
   end
 
-  puts "SUCCESS: Query #{url}. All values matched."
+  puts "SUCCESS: Get #{url}. All values matched."
   return 0
+end
+
+def load_unique_properties
+  if defined?(@unique_properties) == nil
+    @unique_properties = {}
+
+    yaml_data = YAML.load_file("config/schema.yml")
+    node_labels = yaml_data["nodes"].keys
+    node_labels.each do |label|
+      @unique_properties[label] = yaml_data["nodes"][label]["unique_property"]
+    end
+  end
+end
+
+def extract_name_and_type_from(url, content)
+  # For standard POST requests, a handy feature to identify in the output what you're trying to create.
+  load_unique_properties
+  target_node = ""
+  no_url_params = url.split("?")[0]
+  split_url = no_url_params.split("/")
+  node_type = ""
+  node_name = ""
+  split_url.each do |str|
+    if str.length > 0
+      node_type = str.singularize
+      break
+    end
+  end
+
+  if node_type.length > 0 &&
+    content != nil &&
+    @unique_properties.has_key?(node_type) &&
+    content.has_key?(node_type.to_sym) &&
+    content[node_type.to_sym].has_key?(@unique_properties[node_type].to_sym)
+    return { :type => node_type, :name => content[node_type.to_sym][@unique_properties[node_type].to_sym] }
+  end
+
+  return { :type => nil, :name => nil }
+end
+
+def validate_post_put_delete(url, content, expectation, type)
+  data = {
+    body: content
+  }
+  if type == :post
+    response = TestScript.post(url,data)
+  elsif type == :put
+    response = TestScript.put(url,data)
+  elsif type == :delete
+    response = TestScript.delete(url)
+  else
+    raise "Unknown non-get HTML verb: #{type.to_s}"
+  end
+
+  target_node = ""
+  if type == :post
+    name_and_type = extract_name_and_type_from(url, content)
+    if name_and_type[:name] != nil
+      target_node = " (creating #{name_and_type[:type]} \"#{name_and_type[:name]}\")"
+    end
+  end
+
+  correctness = (expectation == :should_succeed) ? (response.code == 200) : (response.code == 500)
+
+  if !correctness
+    puts "FAILED: #{type.to_s.capitalize} #{url}#{target_node}. Expected #{(expectation == :should_succeed) ? "200" : "500"}, got: " +
+    "#{response.code.to_s + (response.code == 200 ? "" : " - " + response.message)}"
+    return 1
+  else
+    puts "SUCCESS: #{type.to_s.capitalize} #{url}#{target_node} returned #{response.code.to_s} as expected."
+    return 0
+  end
+end
+
+def validate_post(url, content, expectation)
+  return validate_post_put_delete(url, content, expectation, :post)
+end
+
+def validate_put(url, content, expectation)
+  return validate_post_put_delete(url, content, expectation, :put)
+end
+
+def validate_delete(url, expectation)
+  return validate_post_put_delete(url, nil, expectation, :delete)
+end
+
+# ************************** TEST ROUTINES **************************
+
+def delete_everything
+  return validate_delete("/bulk/NoSeriouslyIMeanIt?admin=true", :should_succeed)
+end
+
+def prepare_environment_with_direct_calls
+  my_fails = 0
+
+  my_fails += validate_post(
+    "/users?admin=true",
+    {
+      user: {
+        net_id: "cleopatra"
+      }
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/users?admin=true",
+    {
+      user: {
+        net_id: "caesar"
+      }
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/users?admin=true",
+    {
+      user: {
+        net_id: "mark_antony"
+      }
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/security_roles?admin=true",
+    {
+      security_role: {
+        name: "Rockand"
+      },
+      users: [
+        { net_id: "cleopatra" },
+        { net_id: "caesar" }
+      ]
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/security_roles?admin=true",
+    {
+      security_role: {
+        name: "Ingstone",
+        read_access_to: [
+          "report"
+        ],
+        create_access_to: [
+          "report"
+        ]
+      },
+      users: [
+        { net_id: "caesar" },
+        { net_id: "mark_antony" }
+      ]
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/terms?admin=true",
+    {
+      term: {
+        name: "Fall"
+      },
+      allows_access_with: [
+        { name: "Rockand", allow_update_and_delete: false }
+      ]
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/terms?admin=true",
+    {
+      term: {
+        name: "Spring"
+      },
+      allows_access_with: [
+        { name: "Ingstone", allow_update_and_delete: false }
+      ]
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/terms?admin=true",
+    {
+      term: {
+        name: "Summer"
+      },
+      allows_access_with: [
+      ]
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/reports?admin=true",
+    {
+      report: {
+        name: "Foo",
+        description: "Foo Report."
+      },
+      terms: [
+        { name: "Fall" },
+        { name: "Spring" },
+        { name: "Summer" }
+      ],
+      allows_access_with: [
+        { name: "Rockand", allow_update_and_delete: false }
+      ]
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/reports?admin=true",
+    {
+      report: {
+        name: "Bar",
+        description: "Bar Report."
+      },
+      terms: [
+        { name: "Fall" },
+        { name: "Spring" }
+      ],
+      allows_access_with: [
+        { name: "Ingstone", allow_update_and_delete: true }
+      ]
+    },
+    :should_succeed
+  )
+
+  return my_fails
 end
 
 def execute_tests
@@ -388,64 +438,34 @@ def execute_tests
       ] }
     )
 
-  # Now we play with updating a report...
-  data = {
-    body: {
-      report: {
-        name: "Foo",
-        description: "A report on dogs, and maybe lions."
-      }
-    }
-  }
-  response = TestScript.put("/reports/Foo?cas_user=caesar",data)
-  if response.code != 500 # This should fail, Caesar doesn't have access to modify this report.
-    puts "FAILED: Update Foo as caesar got response code #{response.code}."
-    my_fails += 1
-  else
-    puts "SUCCESS: Update Foo as caesar was denied."
-  end
+  # Now we play with updating a report description...
+  my_fails += validate_put(
+    "/reports/Foo?cas_user=caesar",
+    { report: { name: "Foo", description: "A report on dogs, and maybe lions." } },
+    :should_fail
+    )
 
   my_fails += validate_get(
     "/reports/Foo?cas_user=cleopatra",
     { report: { name: "Foo", description: "Foo Report." } }
     )
 
-  data = {
-    body: {
-      report: {
-        name: "Bar",
-        description: "Where Cleopatra goes when she gets thirsty."
-      }
-    }
-  }
-  response = TestScript.put("/reports/Bar?cas_user=cleopatra",data)
-  if response.code != 500 # This should fail, Cleopatra doesn't have access to modify this report.
-    puts "FAILED: Update Bar as cleopatra got response code #{response.code}."
-    my_fails += 1
-  else
-    puts "SUCCESS: Update Bar as cleopatra was denied."
-  end
+  my_fails += validate_put(
+    "/reports/Bar?cas_user=cleopatra",
+    { report: { name: "Bar", description: "Where Cleopatra goes when she gets thirsty." } },
+    :should_fail
+    )
 
   my_fails += validate_get(
     "/reports/Bar?cas_user=mark_antony",
     { report: { name: "Bar", description: "Bar Report." } }
     )
 
-  data = {
-    body: {
-      report: {
-        name: "Bar",
-        description: "Where Caesar goes when he gets thirsty."
-      }
-    }
-  }
-  response = TestScript.put("/reports/Bar?cas_user=caesar",data)
-  if response.code == 500 # This should succeed, Caesar has the Ingstone role which lets him modify Bar.
-    puts "FAILED: Could not update Bar as caesar. #{JSON.parse(response.body)["message"]}."
-    my_fails += 1
-  else
-    puts "SUCCESS: Update Bar as caesar was allowed."
-  end
+  my_fails += validate_put(
+    "/reports/Bar?cas_user=caesar",
+    { report: { name: "Bar", description: "Where Caesar goes when he gets thirsty." } },
+    :should_succeed
+    )
 
   my_fails += validate_get(
     "/reports/Bar?cas_user=mark_antony",
@@ -453,39 +473,30 @@ def execute_tests
     )
 
   # And deleting a report...
-  response = TestScript.delete("/reports/Foo?cas_user=caesar",data)
-  if response.code != 500 # This should fail, Caesar doesn't have access to delete this report.
-    puts "FAILED: Delete Foo as caesar got response code #{response.code}."
-    my_fails += 1
-  else
-    puts "SUCCESS: Delete Foo as caesar was denied."
-  end
+  my_fails += validate_delete(
+    "/reports/Foo?cas_user=caesar",
+    :should_fail
+    )
 
   my_fails += validate_get(
     "/reports/Foo?cas_user=mark_antony",
     { report: { name: "Foo", description: "Foo Report." } }
     )
 
-  response = TestScript.delete("/reports/Bar?cas_user=cleopatra",data)
-  if response.code != 500 # This should fail, Cleopatra doesn't have access to delete this report.
-    puts "FAILED: Delete Bar as cleopatra got response code #{response.code}."
-    my_fails += 1
-  else
-    puts "SUCCESS: Delete Bar as cleopatra was denied."
-  end
+  my_fails += validate_delete(
+    "/reports/Bar?cas_user=cleopatra",
+    :should_fail
+    )
 
   my_fails += validate_get(
     "/reports/Bar?cas_user=mark_antony",
     { report: { name: "Bar", description: "Where Caesar goes when he gets thirsty." } }
     )
 
-  response = TestScript.delete("/reports/Bar?cas_user=caesar",data)
-  if response.code == 500 # This should succeed, Caesar has the Ingstone role which lets him delete Bar.
-    puts "FAILED: Could not delete Bar as caesar. #{JSON.parse(response.body)["message"]}."
-    my_fails += 1
-  else
-    puts "SUCCESS: Delete Bar as caesar was allowed."
-  end
+  my_fails += validate_delete(
+    "/reports/Bar?cas_user=caesar",
+    :should_succeed
+    )
 
   my_fails += validate_get(
     "/reports/Bar?cas_user=mark_antony",
@@ -495,8 +506,9 @@ def execute_tests
   # ...and creating a report, which puts the data back like it was.
   # Notice that we do *not* include the Ingstone security role this time. It should be added
   # automatically because that is the role allowing caesar to create Bar.
-  data = {
-    body: {
+  my_fails += validate_post(
+    "/reports?cas_user=cleopatra",
+    {
       report: {
         name: "Bar",
         description: "Bar Report."
@@ -505,23 +517,18 @@ def execute_tests
         { name: "Fall" },
         { name: "Spring" }
       ]
-    }
-  }
-  response = TestScript.post("/reports?cas_user=cleopatra",data)
-  if response.code != 500 # This should fail, Cleopatra doesn't have access to create reports.
-    puts "FAILED: Create Bar as cleopatra got response code #{response.code}."
-    my_fails += 1
-  else
-    puts "SUCCESS: Create Bar as cleopatra was denied."
-  end
+    },
+    :should_fail
+    )
 
   my_fails += validate_get(
     "/reports/Bar?cas_user=mark_antony",
     { success: false }
     )
 
-  data = {
-    body: {
+  my_fails += validate_post(
+    "/reports?cas_user=caesar",
+    {
       report: {
         name: "Bar",
         description: "Bar Report."
@@ -530,15 +537,9 @@ def execute_tests
         { name: "Fall" },
         { name: "Spring" }
       ]
-    }
-  }
-  response = TestScript.post("/reports?cas_user=caesar",data)
-  if response.code == 500
-    puts "FAILED: Could not create report Bar as caesar. #{JSON.parse(response.body)["message"]}"
-    my_fails += 1
-  else
-    puts "SUCCESS: Create Bar as caesar was allowed."
-  end
+    },
+    :should_succeed
+    )
 
   my_fails += validate_get(
     "/reports/Bar?cas_user=mark_antony",
@@ -549,14 +550,15 @@ def execute_tests
 end
 
 def rebuild_search_index
-  response = TestScript.post("/search/rebuild?admin=true",{})
-  if response.code != 200
-    puts "FAILED: Unable to rebuild search index. #{JSON.parse(response.body)["message"]}"
-    return 1
+  output = validate_post(
+    "/search/rebuild?admin=true",
+    {},
+    :should_succeed
+    )
+  if output == 0
+    sleep(10) # Give Elasticsearch a chance to finish processing.
   end
-  puts "SUCCESS: Rebuild search index."
-  sleep(10) # Give Elasticsearch a chance to finish processing.
-  return 0
+  return output
 end
 
 def bulk_export_and_import
