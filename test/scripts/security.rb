@@ -170,6 +170,7 @@ def validate_post_put_delete(url, content, expectation, type)
   if !correctness
     puts "FAILED: #{type.to_s.capitalize} #{url}#{target_node}. Expected #{(expectation == :should_succeed) ? "200" : "500"}, got: " +
     "#{response.code.to_s + (response.code == 200 ? "" : " - " + response.message)}"
+    puts "        Respose body: #{response.body.to_s}"
     return 1
   else
     puts "SUCCESS: #{type.to_s.capitalize} #{url}#{target_node} returned #{response.code.to_s} as expected."
@@ -229,6 +230,15 @@ def prepare_environment_with_direct_calls
     "/security_roles?admin=true",
     {
       security_role: { name: "Ingstone", read_access_to: [ "report" ], create_access_to: [ "report" ] },
+      users: [ { net_id: "caesar" }, { net_id: "mark_antony" } ]
+    },
+    :should_succeed
+  )
+
+  my_fails += validate_post(
+    "/security_roles?admin=true",
+    {
+      security_role: { name: "Crescent" },
       users: [ { net_id: "caesar" }, { net_id: "mark_antony" } ]
     },
     :should_succeed
@@ -346,7 +356,7 @@ def execute_tests
     { success: false }
     )
 
-  # Now we play with updating a report description...
+  # Now we play with updating a report description and access roles...
   my_fails += validate_put(
     "/reports/Foo?cas_user=caesar",
     { report: { name: "Foo", description: "A report on dogs, and maybe lions." } },
@@ -371,13 +381,13 @@ def execute_tests
 
   my_fails += validate_put(
     "/reports/Bar?cas_user=caesar",
-    { report: { name: "Bar", description: "Where Caesar goes when he gets thirsty." } },
+    { report: { name: "Bar", description: "Where Caesar goes when he gets thirsty." }, allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true }, { name: "Crescent", allow_update_and_delete: false } ] },
     :should_succeed
     )
 
   my_fails += validate_get(
     "/reports/Bar?cas_user=mark_antony",
-    { report: { name: "Bar", description: "Where Caesar goes when he gets thirsty." } }
+    { report: { name: "Bar", description: "Where Caesar goes when he gets thirsty." }, allows_access_with: [ { name: "Ingstone" }, { name: "Crescent" } ] }
     )
 
   # And deleting a report...

@@ -323,7 +323,7 @@ class ModelRepository
   	  number_of = relation.source_number
   	end
   	
-  	delete_relationships(id, relation, direction, tx)
+  	existing_relationship_ids = get_existing_relationships(id, relation, direction, tx)
   	params_element = params[params_key]
   	
   	if number_of == :many
@@ -351,10 +351,14 @@ class ModelRepository
   	    return write_relation_result
   	  end
   	end
+
+    LogTime.info("Deleting existing relationships...")
+    delete_existing_relationships(existing_relationship_ids, relation, tx)
+
   	return { success: true }
   end
   
-  def delete_relationships(id, relation, direction, tx)
+  def get_existing_relationships(id, relation, direction, tx)
   	relationship_name = relation.relation_name
     if direction == :outgoing
   	  other_node_label = relation.target_label
@@ -363,14 +367,32 @@ class ModelRepository
   	  other_node_label = relation.source_label
   	  match_string = "(other:#{other_node_label})-[r:#{relationship_name}]->(primary:#{primary_label})"
   	end
-      CypherTools.execute_query("
+    list = CypherTools.execute_query_into_hash_array("
   	
   	  START primary=node({id})
   	  MATCH #{match_string}
-  	  DELETE r
+  	  RETURN id(r) AS Id
   	
   	", { :id => id }, tx
   	)
+    output = []
+    list.each do |item|
+      output << item["Id"]
+    end
+    return output
+  end
+  
+  def delete_existing_relationships(existing_relationship_ids, relation, tx)
+    if existing_relationship_ids.length > 0
+      CypherTools.execute_query("
+
+        MATCH (a:#{relation.source_label.to_s})-[r:#{relation.relation_name}]->(b#{relation.target_label.to_s})
+        WHERE id(r) IN {ids}
+        DELETE r
+
+        ", { :ids => existing_relationship_ids }, tx
+        )
+    end
   end
 
   def has_existing_source(target_start, target_match, relationship_name, parameters)
@@ -464,14 +486,22 @@ class ModelRepository
         else
           target_start = "u=node({user_id})"
         end
-        target_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        if other_node_model.label.to_s == "security_role"
+          target_match += "<-[:HAS_ROLE]-(u:user)"
+        else
+          target_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        end
       else
         if source_start != nil
           source_start += ", u=node({user_id})"
         else
           source_start = "u=node({user_id})"
         end
-        source_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        if other_node_model.label.to_s == "security_role"
+          source_match += "<-[:HAS_ROLE]-(u:user)"
+        else
+          source_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        end
       end
     end
 

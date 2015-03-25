@@ -78,6 +78,7 @@ relationships:
             - report
             - term
             - dataset
+            - security_role
         name_to_source: allows_access_with
         properties:
             - allow_update_and_delete
