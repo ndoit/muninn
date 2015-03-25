@@ -291,6 +291,15 @@ def prepare_environment_with_direct_calls
     :should_succeed
   )
 
+  my_fails += validate_post(
+    "/offices?admin=true",
+    {
+      office: { name: "SPIR" },
+      allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true } ]
+    },
+    :should_succeed
+  )
+
   return my_fails
 end
 
@@ -388,6 +397,18 @@ def execute_tests
   my_fails += validate_get(
     "/reports/Bar?cas_user=mark_antony",
     { report: { name: "Bar", description: "Where Caesar goes when he gets thirsty." }, allows_access_with: [ { name: "Ingstone" }, { name: "Crescent" } ] }
+    )
+
+  # Try offices too.
+  my_fails += validate_put(
+    "/offices/SPIR?cas_user=caesar",
+    { office: { name: "SPIR" }, allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true }, { name: "Crescent", allow_update_and_delete: false } ] },
+    :should_succeed
+    )
+
+  my_fails += validate_get(
+    "/offices/SPIR?cas_user=caesar",
+    { office: { name: "SPIR" }, allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true }, { name: "Crescent", allow_update_and_delete: false } ] }
     )
 
   # And deleting a report...
