@@ -291,15 +291,6 @@ def prepare_environment_with_direct_calls
     :should_succeed
   )
 
-  my_fails += validate_post(
-    "/offices?admin=true",
-    {
-      office: { name: "SPIR" },
-      allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true } ]
-    },
-    :should_succeed
-  )
-
   return my_fails
 end
 
@@ -399,18 +390,6 @@ def execute_tests
     { report: { name: "Bar", description: "Where Caesar goes when he gets thirsty." }, allows_access_with: [ { name: "Ingstone" }, { name: "Crescent" } ] }
     )
 
-  # Try offices too.
-  my_fails += validate_put(
-    "/offices/SPIR?cas_user=caesar",
-    { office: { name: "SPIR" }, allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true }, { name: "Crescent", allow_update_and_delete: false } ] },
-    :should_succeed
-    )
-
-  my_fails += validate_get(
-    "/offices/SPIR?cas_user=caesar",
-    { office: { name: "SPIR" }, allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true }, { name: "Crescent", allow_update_and_delete: false } ] }
-    )
-
   # And deleting a report...
   my_fails += validate_delete(
     "/reports/Foo?cas_user=caesar",
@@ -450,11 +429,9 @@ def execute_tests
     )
 
   # ...and creating a report, which puts the data back like it was.
-  # Notice that we do *not* include the Ingstone security role this time. It should be added
-  # automatically because that is the role allowing caesar to create Bar.
   my_fails += validate_post(
     "/reports?cas_user=cleopatra",
-    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ] },
+    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Rockand", allow_update_and_delete: true } ] },
     :should_fail
     )
 
@@ -465,7 +442,7 @@ def execute_tests
 
   my_fails += validate_post(
     "/reports?cas_user=caesar",
-    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ] },
+    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true } ] },
     :should_succeed
     )
 
