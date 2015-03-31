@@ -22,6 +22,7 @@ nodes:
             - description
             - tableau_link
             - report_type
+            - embedJSON
             - thumbnail_uri
     security_role:
         unique_property: name
