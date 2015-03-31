@@ -429,11 +429,9 @@ def execute_tests
     )
 
   # ...and creating a report, which puts the data back like it was.
-  # Notice that we do *not* include the Ingstone security role this time. It should be added
-  # automatically because that is the role allowing caesar to create Bar.
   my_fails += validate_post(
     "/reports?cas_user=cleopatra",
-    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ] },
+    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Rockand", allow_update_and_delete: true } ] },
     :should_fail
     )
 
@@ -444,7 +442,7 @@ def execute_tests
 
   my_fails += validate_post(
     "/reports?cas_user=caesar",
-    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ] },
+    { report: { name: "Bar", description: "Bar Report." }, terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Ingstone", allow_update_and_delete: true } ] },
     :should_succeed
     )
 
