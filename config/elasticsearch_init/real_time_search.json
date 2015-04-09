@@ -52,6 +52,7 @@
                                 "name": {
                                     "type": "string",
                                     "store": "yes"
+
                                 },
                                 "raw": {
                                     "type": "string",
@@ -68,6 +69,7 @@
                           "definition": {
                                     "type": "string",
                                     "store": "yes"
+
                             },
                             "raw": {
                                 "type": "string",
@@ -79,8 +81,10 @@
                         },
                         "source_system": {
                             "type": "string",
-                            "index": "not_analyzed"
+                            "index": "not_analyzed",
+                            "include_in_all": false
                         },
+
                         "possible_values": {
                             "type": "string",
                             "include_in_all": false
@@ -96,33 +100,7 @@
                         "data_availability": {
                             "type": "string",
                             "include_in_all": false
-                        },
-                        "stakeholders": {
-
-                           "properties": {
-                             "id": {
-                                "type": "long"
-                             },                         
-                             "stake": {
-                                "type": "string"
-                             },
-                             "name": {
-                                 "type": "multi_field",
-                                 "fields": {
-                                  "name": {
-                                            "type": "string",
-                                            "store": "yes"
-                                    },
-                                    "raw": {
-                                        "type": "string",
-                                        "index": "not_analyzed",
-                                         "include_in_all": true,
-                                        "store": "yes"
-                                    }
-                                 }
-                           }    
                         }
-                      }
                     }
                 }
             }
