@@ -13,10 +13,10 @@ class UsersController < GraphController
     return UserRepository.new
   end
 
-  def extract_json_message(rawdata)
+  def extract_user_values(rawdata)
     begin
-      data = JSON.parse(rawdata.body)
-      return data["message"]
+      data = JSON.parse(rawdata)
+      return data["entitlements"]
     rescue Exception => e  
       LogTime.info "Extract failed with error: " + e.message
       return []
@@ -46,9 +46,9 @@ class UsersController < GraphController
   end
 
   def parse_message(rawdata, role_map)
-    LogTime.info "Extracting JSON from AWS message."
+    LogTime.info "Extracting JSON user values from AWS message."
 
-    data = extract_json_message(rawdata)
+    data = extract_user_values(rawdata)
 
     LogTime.info "Extracted: " + data.to_s
 
@@ -56,7 +56,7 @@ class UsersController < GraphController
 
     LogTime.info "Parsing users."
 
-    data["entitlements"].each do |user_data|
+    data.each do |user_data|
       LogTime.info("Parsing" + user_data.to_s + "...")
       user_roles = []
       missing_roles = ""
@@ -129,6 +129,8 @@ class UsersController < GraphController
     LogTime.info "Retrieving messages."
 
     messages = sqs.receive_message queue_url: qurl.queue_url
+
+    LogTime.info "Retrieved: #{messages.to_s}"
 
     LogTime.info messages[:messages].length.to_s + " messages found."
 
