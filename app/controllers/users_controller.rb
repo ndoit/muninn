@@ -56,7 +56,7 @@ class UsersController < GraphController
 
     LogTime.info "Parsing users."
 
-    data.each do |user_data|
+    data["entitlements"].each do |user_data|
       LogTime.info("Parsing" + user_data.to_s + "...")
       user_roles = []
       missing_roles = ""
@@ -175,7 +175,7 @@ class UsersController < GraphController
     aws_queue[:messages].each do |rawdata|
       LogTime.info "Raw message: " + rawdata.to_s
 
-      users = parse_message(rawdata, role_map)
+      users = parse_message(rawdata.body, role_map)
       processed = processed + 1
 
       if users.length > 0
