@@ -99,9 +99,11 @@ class ElasticSearchIO
     else
       search_result["hits"]["hits"] = output
       search_result["hits"]["total"] = output.length
-      search_result["aggregations"]["type"]["buckets"] = []
-      counts_by_type.keys.each do |key|
-        search_result["aggregations"]["type"]["buckets"] << { "key" => key, "doc_count" => counts_by_type[key] }
+      if search_result.has_key?("aggregations") && search_result["aggregations"].has_key?("type")
+        search_result["aggregations"]["type"]["buckets"] = []
+        counts_by_type.keys.each do |key|
+          search_result["aggregations"]["type"]["buckets"] << { "key" => key, "doc_count" => counts_by_type[key] }
+        end
       end
       return search_result
     end
