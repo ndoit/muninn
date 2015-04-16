@@ -1,5 +1,7 @@
 
 class SecurityGoon
+  @@cached_user_results = {}
+
   def self.generic_admin
     return {
       "id" => nil,
@@ -23,12 +25,12 @@ class SecurityGoon
 
     if !Rails.application.config.require_proxy_auth && params[:cas_user]
       LogTime.info("Accepting front end authentication for: " + params[:cas_user])
-      return UserRepository.new().security_get(params[:cas_user])
+      return get_user_obj(params[:cas_user])
     end
 
   	if !params.has_key?(:service) || !params.has_key?(:ticket)
       LogTime.info("No proxy ticket found. Access granted per anonymous user.")
-  	  return UserRepository.new().security_get("&anonymous")
+  	  return get_user_obj("&anonymous")
   	end
   	proxy_ticket = CASClient::ProxyTicket.new(params[:ticket],params[:service])
     validate_result = CASClient::Frameworks::Rails::Filter.client.validate_proxy_ticket(proxy_ticket)
@@ -38,7 +40,21 @@ class SecurityGoon
       return { success: false, message: "Proxy ticket received but failed to validate." }
     end
     LogTime.info("User identified: " + validate_result.user)
-    return UserRepository.new().security_get(validate_result.user)
+    return get_user_obj(validate_result.user)
+  end
+
+  def self.get_user_obj(user_name)
+    if !@@cached_user_results.has_key?(user_name) ||
+      (@@cached_user_results[user_name][:cached_at] < Time.now.to_i - 600) #Cache users for 10 minutes.
+
+      @@cached_user_results[user_name] = {
+        :cached_at => Time.now.to_i,
+        :user_obj => UserRepository.new().security_get(user_name)
+      }
+      LogTime.info("Loaded user into cache.")
+    end
+    LogTime.info("Returning cached user.")
+    return @@cached_user_results[user_name][:user_obj]
   end
 
   def self.check_for_full_create(user_obj, label)
