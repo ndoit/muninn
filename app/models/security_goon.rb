@@ -16,6 +16,7 @@ class SecurityGoon
   end
 
   def self.clear_cache
+    LogTime.info("Clearing security goon cache.")
     @@cached_user_results = {}
   end
 
