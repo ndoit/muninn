@@ -46,13 +46,12 @@
                         "search_analyzer": "whitespace_analyzer"
                     },
                     "properties": {
-                       "name": {
+                        "name": {
                             "type": "multi_field",
                             "fields": {
                                 "name": {
                                     "type": "string",
                                     "store": "yes"
-
                                 },
                                 "raw": {
                                     "type": "string",
@@ -64,42 +63,19 @@
                             }
                         },
                         "definition": {
-                         "type": "multi_field",
-                         "fields": {
-                          "definition": {
+                            "type": "multi_field",
+                            "fields": {
+                                "definition": {
                                     "type": "string",
                                     "store": "yes"
-
-                            },
-                            "raw": {
-                                "type": "string",
-                                "index": "not_analyzed",
-                                 "include_in_all": true,
-                                "store": "yes"
+                                },
+                                "raw": {
+                                    "type": "string",
+                                    "index": "not_analyzed",
+                                    "include_in_all": true,
+                                    "store": "yes"
+                                }
                             }
-                            }
-                        },
-                        "source_system": {
-                            "type": "string",
-                            "index": "not_analyzed",
-                            "include_in_all": false
-                        },
-
-                        "possible_values": {
-                            "type": "string",
-                            "include_in_all": false
-                        },
-                        "notes": {
-                            "type": "string",
-                            "include_in_all": false
-                        },
-                        "data_sensitivity": {
-                            "type": "string",
-                            "include_in_all": false
-                        },
-                        "data_availability": {
-                            "type": "string",
-                            "include_in_all": false
                         }
                     }
                 }
@@ -156,7 +132,7 @@
                         "id": {
                             "type": "long"
                         },
-                       "name": {
+                        "name": {
                             "type": "multi_field",
                             "fields": {
                                 "name": {
@@ -227,7 +203,7 @@
                         "id": {
                             "type": "long"
                         },
-                       "name": {
+                        "name": {
                             "type": "multi_field",
                             "fields": {
                                 "name": {
@@ -295,25 +271,6 @@
                         "search_analyzer": "whitespace_analyzer"
                     },
                     "properties": {
-                        "datasource": {
-                            "type": "multi_field",
-                            "fields": {
-                                "datasource": {
-                                    "type": "string",
-                                    "store": "yes"
-                                },
-                                "raw": {
-                                    "type": "string",
-                                    "index": "not_analyzed",
-                                    "analyzer": "simple",
-                                    "include_in_all": true,
-                                    "store": "yes"
-                                }
-                            }
-                        },
-                        "id": {
-                            "type": "long"
-                        },
                         "name": {
                             "type": "multi_field",
                             "fields": {
@@ -345,23 +302,7 @@
                                     "store": "yes"
                                 }
                             }
-                        },
-                        "report_type": {
-                            "type": "multi_field",
-                            "fields": {
-                                "report_type": {
-                                    "type": "string",
-                                    "store": "yes"
-                                },
-                                "raw": {
-                                    "type": "string",
-                                    "index": "not_analyzed",
-                                    "analyzer": "simple",
-                                    "include_in_all": true,
-                                    "store": "yes"
-                                }
-                            }
-                        } 
+                        }
                     }
                 }
             }
