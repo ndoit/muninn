@@ -24,6 +24,7 @@ nodes:
             - report_type
             - embedJSON
             - thumbnail_uri
+            - gridsize
     security_role:
         unique_property: name
         other_properties: 
@@ -64,10 +65,8 @@ relationships:
     SUBREPORTS:
         source_label: report
         target_label: report
-        name_to_source: source_of_collection
+        name_to_source: aggregator
         name_to_target: subreports
-        properties: 
-            - gridsize
     ALLOWS_ACCESS_WITH:
         target_label: security_role
         source_label:
