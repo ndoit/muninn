@@ -15,6 +15,10 @@ class SecurityGoon
       }
   end
 
+  def self.clear_cache
+    @@cached_user_results = {}
+  end
+
   def self.who_is_this(params)
     LogTime.info("Identifying user from params: " + params.to_s)
 

@@ -19,6 +19,7 @@ class GraphController < ApplicationController
   
   def create
     LogTime.info "****************************************** COMMENCE CREATE ******************************************"
+    SecurityGoon.clear_cache
     LogTime.info "Identifying user."
     user_result = SecurityGoon.who_is_this(params)
     if !user_result[:success]
@@ -40,6 +41,7 @@ class GraphController < ApplicationController
   
   def update
     LogTime.info "****************************************** COMMENCE UPDATE ******************************************"
+    SecurityGoon.clear_cache
     LogTime.info "Identifying user."
     user_result = SecurityGoon.who_is_this(params)
     if !user_result[:success]
@@ -86,6 +88,7 @@ class GraphController < ApplicationController
   
   def destroy
     LogTime.info "****************************************** COMMENCE DESTROY ******************************************"
+    SecurityGoon.clear_cache
     LogTime.info "Identifying user."
     user_result = SecurityGoon.who_is_this(params)
     if !user_result[:success]
