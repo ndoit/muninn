@@ -58,4 +58,6 @@ BIPortalDataService::Application.routes.draw do
   post 'search/reinitialize', to: 'search#reinitialize'
 
   get 'my_access', to: 'users#my_access'
+
+  get 'new_search', to: 'search#new_search'
 end

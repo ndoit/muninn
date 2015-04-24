@@ -4,6 +4,20 @@ class NodeModel
   attr_accessor :label, :properties, :unique_property
   attr_accessor :outgoing, :incoming
 
+  def has_relation_named?(str)
+    outgoing.each do |rel|
+      if rel.name_to_source == str
+        return true
+      end
+    end
+    incoming.each do |rel|
+      if rel.name_to_target == str
+        return true
+      end
+    end
+    return false
+  end
+
   def parameters_contain_property(parameters, property)
     if parameters.has_key?(:properties) && parameters[:properties].include?(property)
       return true

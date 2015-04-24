@@ -11,6 +11,8 @@ require "httparty"
 class ElasticSearchIO
   include Singleton
 
+  #@@es_client = Elasticsearch::Client.new log: true
+
   def user_can_see_node(user_obj, node_name, label, allows_access_with)
     LogTime.info("Checking node access: node_name = #{node_name.to_s}, label = #{label.to_s}, allows_access_with = #{allows_access_with.to_s}")
     if SecurityGoon.check_for_full_read(user_obj, label)
@@ -32,8 +34,78 @@ class ElasticSearchIO
     return false
   end
 
+  def construct_security_filter(user_obj)
+    shoulds = []
+    GraphModel.instance.nodes.keys.each do |label|
+      if SecurityGoon.check_for_full_read(user_obj, label)
+        shoulds << { "type" => { "value" => label.to_s } }
+      end
+    end
+    user_obj["roles"].keys.each do |role|
+      shoulds << { "term" => { "&allows_access_with" => role } }
+    end
+    return {
+      "bool" => {
+        "should" => shoulds
+      }
+    }
+  end
+
+  def new_search(params)
+    if params == nil || !params.has_key?("search_string")
+      return { success: false, message: "You must include a search_string." }
+    end
+
+    search_string = params["search_string"]
+    max_results = params.has_key?("max_results") ? params["max_results"] : 10
+    fields = params.has_key?("fields") ? params["fields"] : [ "name", "description", "definition" ]
+    search_fields = params.has_key?("search_fields") ?
+      params["search_fields"] : [ "name^10", "definition", "description" ]
+
+    query_body = {
+      "query" => {
+          "filtered" => {
+              "query" => {
+                  "multi_match" => {
+                      "query" => search_string,
+                      "fields" => search_fields
+                  }
+              },
+              "filter" => SecurityGoon.get_search_filter(params)
+          }
+      },
+      "size" => max_results,
+      "fields" => fields
+    }
+
+    uri = URI.parse("http://localhost:9200/graph_nodes/_search")
+    request = Net::HTTP::Get.new(uri.path)
+    request.content_type = 'application/json'
+    request.body = query_body.to_json
+
+    response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+      http.request(request)
+    end
+
+    if !response.kind_of? Net::HTTPSuccess
+      return { success: false, message: response.message }
+    end
+
+    raw_output = JSON.parse(response.body)
+    output = []
+    raw_output["hits"]["hits"].each do |hit|
+      result = { "&type" => hit["_type"] }
+      hit["fields"].keys.each do |key|
+        result[key] = hit["fields"][key][0]
+      end
+      output << result
+    end
+
+    return { success: true, result: output }
+  end
+
   def convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
-    data = hit["_source"]
+    data = hit.has_key?("_source") ? hit["_source"] : hit["fields"]
     output_data = {}
     aggregations = {}
     # We have to apply security filters to related nodes as well as the main node.
@@ -43,7 +115,7 @@ class ElasticSearchIO
         data[key].each do |item|
           if item.kind_of?(Hash) && item.has_key?("&label")
             model = GraphModel.instance.nodes[item["&label"].to_sym]
-            if user_can_see_node(user_obj, item[model.unique_property], item["&label"], item["&allows_access_with"])
+            if user_can_see_node(user_obj, item[model.unique_property], item["&label"], item.has_key?("&allows_access_with") ? item["&allows_access_with"] : [])
               item.delete("&label")
               item.delete("&allows_access_with")
               output_items << item
@@ -76,6 +148,7 @@ class ElasticSearchIO
   end
 
   def filter_output_by_access(search_result, user_obj, do_cleanup)
+    LogTime.info "Filtering search result: #{search_result.to_s}"
     output = []
     general_access = {}
     counts_by_type = {}
@@ -84,7 +157,18 @@ class ElasticSearchIO
       if model == nil
         LogTime.info "No model found for type #{hit["_type"].to_s}."
       else
-        if user_can_see_node(user_obj, hit["_source"][model.unique_property], hit["_type"], hit["_source"]["allows_access_with"])
+        if hit.has_key?("_source")
+          hit_data = hit["_source"]
+        elsif hit.has_key?("fields")
+          hit_data = hit["fields"]
+        else
+          raise "Could not find _source or fields in result set, unable to perform security filtering."
+        end
+        unless hit_data.has_key?(model.unique_property)
+          raise "#{model.unique_property} field must be included in all queries for nodes of type #{hit["_type"]}, to allow security filtering."
+        end
+        access_via = hit_data.has_key?("allows_access_with") ? hit_data["allows_access_with"] : []
+        if user_can_see_node(user_obj, hit_data[model.unique_property], hit["_type"], access_via)
           output << convert_hit_to_output(hit, user_obj, general_access, do_cleanup)
           if !counts_by_type.has_key?(hit["_type"])
             counts_by_type[hit["_type"]] = 1
@@ -113,6 +197,7 @@ class ElasticSearchIO
     LogTime.info("Loading data: " + data.to_s)
     data.each do |node|
       id = node["id"]
+      node["&allows_access_with"] = []
 
       node_model = GraphModel.instance.nodes[label.to_sym]
 
@@ -126,6 +211,11 @@ class ElasticSearchIO
           RETURN id(other) AS id, sr.name AS allows_access_with, other." + target_model.unique_property + relation.property_string("r"),
           { :id => id }, nil)
         node[relation.name_to_source] = process_related_nodes(related_nodes, target_model.label)
+        if relation.name_to_source == "allows_access_with"
+          related_nodes.each do |node_hash|
+            node["&allows_access_with"] << node_hash["name"]
+          end
+        end
         if update_related_nodes
           related_nodes.each do |related_node|
             update_node(target_model.label, related_node["id"], false)
@@ -152,7 +242,7 @@ class ElasticSearchIO
 
       LogTime.info("Updating node: " + id.to_s)
 
-      uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/#{id}")
+      uri = URI.parse("http://localhost:9200/graph_nodes/#{label}/#{id}")
       request = Net::HTTP::Put.new(uri.path)
       request.content_type = 'application/json'
       request.body = node.to_json
@@ -278,7 +368,7 @@ class ElasticSearchIO
   def delete_all_nodes(label)
     LogTime.info("Delete all nodes of type: #{label}")
 
-    uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/")
+    uri = URI.parse("http://localhost:9200/graph_nodes/#{label}/")
     request = Net::HTTP::Delete.new(uri.path)
 
     LogTime.info("Request created: #{uri.path}")
@@ -298,7 +388,7 @@ class ElasticSearchIO
 
   def delete_node(label, id, update_related_nodes = true)
     LogTime.info("Delete node " + id.to_s + " of type: #{label}")
-    uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/" + id.to_s)
+    uri = URI.parse("http://localhost:9200/graph_nodes/#{label}/" + id.to_s)
 
     if update_related_nodes
       LogTime.info("Searching for related nodes.")
@@ -332,7 +422,7 @@ class ElasticSearchIO
       end
     end
 
-    uri = URI.parse("http://localhost:9200/#{label.to_s.pluralize}/#{label}/" + id.to_s)
+    uri = URI.parse("http://localhost:9200/graph_nodes/#{label}/" + id.to_s)
     request = Net::HTTP::Delete.new(uri.path)
 
     LogTime.info("Request created.")
@@ -390,8 +480,10 @@ class ElasticSearchIO
       return { success: false, message: "You must include a query." }
     end
     if index != nil
+      LogTime.info("Searching on index #{index.to_s}, type #{label.to_s}, body #{query_json.to_s}")
       output = client.search index: index, type: label, body: query_json #hard coded terms index needs to be paramater. #SMM added index as the node type
     else
+      LogTime.info("Searching on body #{query_json.to_s}")
       output = client.search  body: query_json #hard coded terms index needs to be paramater. #SMM removed the index as a parameter for common search
     end
     return { success: true, result: filter_output_by_access(output, user_obj, false) }
@@ -402,13 +494,13 @@ class ElasticSearchIO
       if query_string == nil
         return { success: false, message: "Specify a result type or a search term." }
       else
-        uri_string = "/#{label.to_s.pluralize}/_search?q=#{query_string}"
+        uri_string = "/graph_nodes/_search?q=#{query_string}"
       end
     else
       if query_string == nil
-        uri_string  = "/#{label.to_s.pluralize}/#{label}/_search?size=9999" #SMM - added to bypass default sixe
+        uri_string  = "/graph_nodes/#{label}/_search?size=9999" #SMM - added to bypass default sixe
       else
-        uri_string = "/#{label.to_s.pluralize}/#{label}/_search?q=#{query_string}"
+        uri_string = "/graph_nodes/#{label}/_search?q=#{query_string}"
       end
     end
     LogTime.info("Querying: " + uri_string)

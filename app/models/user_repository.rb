@@ -185,7 +185,7 @@ class UserRepository < ModelRepository
   end
 
   def add_public_roles(params)
-    if !params.has_key?(:security_roles)
+    if !params.has_key?(:security_roles) || params[:security_roles] == nil
       params[:security_roles] = get_public_roles
       return params
     end
@@ -194,7 +194,7 @@ class UserRepository < ModelRepository
     public_roles = get_public_roles
     public_roles.each do |public_role|
       role_found = false
-      params["security_roles"].each do |role|
+      params[:security_roles].each do |role|
         if role.has_key?(:id) && public_role[:id] == role[:id]
           role_found = true
         elsif role.has_key?(role_unique_property) && public_role[role_unique_property] == role[role_unique_property]
@@ -202,7 +202,7 @@ class UserRepository < ModelRepository
         end
       end
       if !role_found
-        params["security_roles"] << public_role
+        params[:security_roles] << public_role
       end
     end
 

@@ -46,6 +46,16 @@ class SearchController < ApplicationController
       render :status => 500, :json => output
     end
   end
+
+  def new_search
+    # new_search has its own streamlined call to SecurityGoon.
+    output = ElasticSearchIO.instance.new_search(params)
+    if output[:success]
+      render :status => 200, :json => output
+    else
+      render :status => 500, :json => output
+    end
+  end
   
   def search
     user_result = SecurityGoon.who_is_this(params)
