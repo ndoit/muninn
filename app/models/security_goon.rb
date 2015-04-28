@@ -70,7 +70,7 @@ class SecurityGoon
   def self.get_search_filter(params)
     if Rails.env.development? && params[:admin] #Admin user, no security filter required.
       return {}
-    elsif !Rails.application.config.require_proxy_auth && params[:cas_user]
+    elsif !Rails.application.config.require_proxy_auth && params.has_key?(:cas_user)
       user_name = params[:cas_user]
     elsif !params.has_key?(:service) || !params.has_key?(:ticket)
       user_name = "&anonymous"

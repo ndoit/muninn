@@ -51,6 +51,14 @@ class ElasticSearchIO
     }
   end
 
+  # URL PARAMETERS (search_string is required, all others optional)
+
+  # search_string: The string to search for
+  # max_results: The number of results to return (default 10)
+  # page: The page number of results (default 1)
+  # fields: The fields to return (default name, definition, description)
+  # search_fields: The fields to search in (default name^10, definition, description)
+  
   def new_search(params)
     if params == nil || !params.has_key?("search_string")
       return { success: false, message: "You must include a search_string." }
@@ -58,7 +66,8 @@ class ElasticSearchIO
 
     search_string = params["search_string"]
     max_results = params.has_key?("max_results") ? params["max_results"] : 10
-    fields = params.has_key?("fields") ? params["fields"] : [ "name", "description", "definition" ]
+    from = params.has_key?("page") ? (params["page"].to_i - 1) * max_results : 0
+    fields = params.has_key?("fields") ? params["fields"] : [ "name", "definition", "description" ]
     search_fields = params.has_key?("search_fields") ?
       params["search_fields"] : [ "name^10", "definition", "description" ]
 
@@ -74,6 +83,7 @@ class ElasticSearchIO
               "filter" => SecurityGoon.get_search_filter(params)
           }
       },
+      "from" => from,
       "size" => max_results,
       "fields" => fields
     }
