@@ -108,7 +108,7 @@ class ElasticSearchIO
       end
     else
       if fields.include?("name")
-        sort << [ "name.raw" ]
+        sort << "name.raw"
       end
     end
 
