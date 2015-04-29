@@ -98,17 +98,17 @@ class SecurityGoon
           :filter => {}
         }
       else
-        shoulds = []
+        clauses = []
         user_obj["read_access_to"].each do |full_read|
-          shoulds << { "term" => { "_type" => full_read.to_s.downcase } }
+          clauses << { "term" => { "_type" => full_read.to_s.downcase } }
         end
         user_obj["roles"].keys.each do |role|
-          shoulds << { "term" => { "&allows_access_with" => role.downcase } }
+          clauses << { "term" => { "&allows_access_with" => role.downcase } }
         end
 
         @@cached_search_filters[user_name] = {
           :cached_at => Time.now.to_i,
-          :filter => { "bool" => { "should" => shoulds } }
+          :filter => { "or" => clauses }
         }
       end
     end

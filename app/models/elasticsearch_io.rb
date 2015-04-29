@@ -60,38 +60,93 @@ class ElasticSearchIO
   # search_fields: The fields to search in (default name^10, definition, description)
   
   def new_search(params)
-    if params == nil || !params.has_key?("search_string")
-      return { success: false, message: "You must include a search_string." }
+    if params == nil 
+      params = {}
     end
 
-    search_string = params["search_string"]
+    search_string = (params.has_key?("search_string") && params["search_string"] != nil && params["search_string"].length >= 2) ? params["search_string"] : nil
     max_results = params.has_key?("max_results") ? params["max_results"] : 10
     from = params.has_key?("page") ? (params["page"].to_i - 1) * max_results : 0
     fields = params.has_key?("fields") ? params["fields"] : [ "name", "definition", "description" ]
     search_fields = params.has_key?("search_fields") ?
       params["search_fields"] : [ "name^10", "definition", "description" ]
 
-    query_body = {
-      "query" => {
-          "filtered" => {
-              "query" => {
-                  "multi_match" => {
-                      "query" => search_string,
-                      "fields" => search_fields
-                  }
-              },
-              "filter" => SecurityGoon.get_search_filter(params)
-          }
-      },
-      "from" => from,
-      "size" => max_results,
-      "fields" => fields
-    }
+    security_filter = SecurityGoon.get_search_filter(params)
+    if params.has_key?("types")
+      if params["types"].respond_to?("each")
+        type_clauses = []
+        params["types"].each do |type|
+          type_clauses << { "term" => { "_type" => type } }
+        end
+
+        filter = {
+          "and" => [
+            security_filter,
+            { "or" => type_clauses }
+          ]
+        }
+      else
+        filter = {
+          "and" => [
+            security_filter,
+            "term" => { "_type" => params["types"] }
+          ]
+        }
+      end
+    else
+      filter = security_filter
+    end
+
+    sort = [ "_score" ]
+    if params.has_key?("sort")
+      if params["sort"].respond_to?("each")
+        params["sort"].each do |sort_field|
+          sort << "#{sort_field}.raw"
+        end
+      else
+        sort << "#{params["sort"]}.raw"
+      end
+    else
+      if fields.include?("name")
+        sort << [ "name.raw" ]
+      end
+    end
+
+    if search_string != nil
+      query_body = {
+        "query" => {
+            "filtered" => {
+                "query" => {
+                    "multi_match" => {
+                        "query" => search_string,
+                        "fields" => search_fields
+                    }
+                },
+                "filter" => filter
+            }
+        },
+        "from" => from,
+        "size" => max_results,
+        "fields" => fields,
+        "sort" => sort
+      }
+    else
+      # If no search string given or string is less than 2 chars, just filter.
+      query_body = {
+        "filter" => filter,
+        "from" => from,
+        "size" => max_results,
+        "fields" => fields,
+        "sort" => sort
+      }
+    end
 
     uri = URI.parse("http://localhost:9200/graph_nodes/_search")
     request = Net::HTTP::Get.new(uri.path)
     request.content_type = 'application/json'
     request.body = query_body.to_json
+
+    LogTime.info(query_body.to_json)
 
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(request)
