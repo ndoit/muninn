@@ -25,6 +25,7 @@ nodes:
             - embedJSON
             - thumbnail_uri
             - gridsize
+            - timestamp
     security_role:
         unique_property: name
         other_properties: 
