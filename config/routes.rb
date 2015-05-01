@@ -41,6 +41,8 @@ BIPortalDataService::Application.routes.draw do
 
   create_resources 'offices'
 
+  create_resources 'permission_groups'
+
   create_resources 'datasets'
 
   create_resources 'reports'
