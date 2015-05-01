@@ -4,7 +4,7 @@ class CypherTools
   @@neo = Neography::Rest.new
   
   def self.start_transaction()
-    LogTime.info("Starting transaction.")
+    LogTime.info("Starting transaction".colorize(:yellow))
     output = @@neo.begin_transaction
 	LogTime.info("Started: " + output["commit"].to_s)
 	return output
@@ -14,15 +14,15 @@ class CypherTools
     LogTime.info("Committing transaction: " + transaction["commit"].to_s)
     output = @@neo.commit_transaction(transaction)
 	if output["errors"].length > 0
-	  LogTime.info("Commit failed. Raising error.")
+	  LogTime.info("Commit failed. Raising error.".colorize(:red))
 	  raise output["errors"][0]["Message"]
 	end
-	LogTime.info("Commit successful.")
+	LogTime.info("Commit successful.".colorize(:green))
 	return output
   end
   
   def self.rollback_transaction(transaction)
-    LogTime.info("Rolling back transaction: " + transaction["commit"].to_s)
+    LogTime.info("Rolling back transaction: ".colorize(:red) + transaction["commit"].to_s.colorize(:red))
     return @@neo.rollback_transaction(transaction)
   end
   
