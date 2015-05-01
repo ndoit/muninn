@@ -7,6 +7,7 @@ require "active_support/core_ext"
 
 class TestScript
   include HTTParty
+  default_timeout 600
   base_uri "http://localhost:3000"
 end
 
@@ -360,21 +361,26 @@ def execute_tests
   # fields with null values get nulled out.
   my_fails += validate_put(
     "/terms/Spring?admin=true",
-    { term: { name: "Spring", description: "The other spring term." } },
+    { term: { name: "Spring", definition: "The other spring term." } },
     :should_succeed
     )
   my_fails += validate_get(
     "/terms/Spring?admin=true",
-    { term: { name: "Spring", description: "The other spring term.", notes: "Another term." } }
+    { term: { name: "Spring", definition: "The other spring term.", notes: "Another term." } }
     )
   my_fails += validate_put(
     "/terms/Spring?admin=true",
-    { term: { name: "Spring", description: "The other spring term.", notes: nil } },
+    { term: { name: "Spring", definition: "The other spring term.", notes: nil } },
     :should_succeed
     )
   my_fails += validate_get(
     "/terms/Spring?admin=true",
-    { term: { name: "Spring", description: "The other spring term.", notes: nil } }
+    { term: { name: "Spring", definition: "The other spring term.", notes: "" } }
+    )
+  my_fails += validate_put(
+    "/terms/Spring?admin=true",
+    { term: { name: "Spring", definition: "The other spring term.", notes: "Another term." } },
+    :should_succeed
     )
 
   # Now we play with updating a report description and access roles...

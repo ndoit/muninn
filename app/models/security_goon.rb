@@ -53,7 +53,7 @@ class SecurityGoon
 
   def self.get_user_obj(user_name)
     if !@@cached_user_results.has_key?(user_name) ||
-      (@@cached_user_results[user_name][:cached_at] < Time.now.to_i - 600) #Cache users for 10 minutes.
+      (@@cached_user_results[user_name][:cached_at] < Time.now.to_i - 60) #Cache users for 60 seconds.
 
       @@cached_user_results[user_name] = {
         :cached_at => Time.now.to_i,
@@ -84,7 +84,7 @@ class SecurityGoon
     end
 
     if !@@cached_search_filters.has_key?(user_name) ||
-      (@@cached_search_filters[user_name][:cached_at] < Time.now.to_i - 600) #Cache search filters for 10 minutes.
+      (@@cached_search_filters[user_name][:cached_at] < Time.now.to_i - 60) #Cache search filters for 60 seconds.
 
       user_res = get_user_obj(user_name)
       if !user_res[:success]
