@@ -205,7 +205,7 @@ class ModelRepository
         SET
         primary.modified_date = {now},
         primary.modified_by = {user},
-        " + node_model.property_write_string("primary") + "
+        " + node_model.property_write_string("primary", node_contents) + "
         RETURN Id(primary)"
       else
         parameters = { :unique_property => params[:unique_property], :now => now, :user => user_obj["net_id"], :user_id => user_obj["id"] }
@@ -216,7 +216,7 @@ class ModelRepository
         SET
         primary.modified_date = {now},
         primary.modified_by = {user},
-        " + node_model.property_write_string("primary") + "
+        " + node_model.property_write_string("primary", node_contents) + "
         RETURN Id(primary)"
       end
 
@@ -588,7 +588,7 @@ class ModelRepository
       n.modified_date,
       n.created_by,
       n.modified_by,
-      #{node_model.property_string("n",user_obj!=nil)}"
+      #{node_model.property_string("n")}"
 
     query_string = "
       #{start_string}

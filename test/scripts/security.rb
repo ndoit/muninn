@@ -247,7 +247,7 @@ def prepare_environment_with_direct_calls
   my_fails += validate_post(
     "/terms?admin=true",
     {
-      term: { name: "Fall" },
+      term: { name: "Fall", definition: "The fall term.", notes: "A term." },
       allows_access_with: [ { name: "Rockand", allow_update_and_delete: false } ]
     },
     :should_succeed
@@ -256,7 +256,7 @@ def prepare_environment_with_direct_calls
   my_fails += validate_post(
     "/terms?admin=true",
     {
-      term: { name: "Spring" },
+      term: { name: "Spring", definition: "The spring term.", notes: "Another term." },
       allows_access_with: [ { name: "Ingstone", allow_update_and_delete: false } ]
     },
     :should_succeed
@@ -354,6 +354,27 @@ def execute_tests
   my_fails += validate_get(
     "/security_roles/Ingstone?cas_user=cleopatra",
     { success: false }
+    )
+
+  # Verify that when we update a node without including all the property fields, unmentioned fields get left unchanged, but
+  # fields with null values get nulled out.
+  my_fails += validate_put(
+    "/terms/Spring?admin=true",
+    { term: { name: "Spring", description: "The other spring term." } },
+    :should_succeed
+    )
+  my_fails += validate_get(
+    "/terms/Spring?admin=true",
+    { term: { name: "Spring", description: "The other spring term.", notes: "Another term." } }
+    )
+  my_fails += validate_put(
+    "/terms/Spring?admin=true",
+    { term: { name: "Spring", description: "The other spring term.", notes: nil } },
+    :should_succeed
+    )
+  my_fails += validate_get(
+    "/terms/Spring?admin=true",
+    { term: { name: "Spring", description: "The other spring term.", notes: nil } }
     )
 
   # Now we play with updating a report description and access roles...

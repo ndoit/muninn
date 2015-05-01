@@ -58,12 +58,14 @@ class ElasticSearchIO
   # page: The page number of results (default 1)
   # fields: The fields to return (default name, definition, description)
   # search_fields: The fields to search in (default name^10, definition, description)
+  # types: List of node types to return, or a single node type (default to all node types)
+  # sort: List of fields to sort by, in order (default _score, name)
   
   def new_search(params)
     if params == nil 
       params = {}
     end
-
+s
     search_string = (params.has_key?("search_string") && params["search_string"] != nil && params["search_string"].length >= 2) ? params["search_string"] : nil
     max_results = params.has_key?("max_results") ? params["max_results"] : 10
     from = params.has_key?("page") ? (params["page"].to_i - 1) * max_results : 0
@@ -97,18 +99,18 @@ class ElasticSearchIO
       filter = security_filter
     end
 
-    sort = [ "_score" ]
+    sort = [ "_score" ] # always sort by score first
     if params.has_key?("sort")
       if params["sort"].respond_to?("each")
         params["sort"].each do |sort_field|
-          sort << "#{sort_field}.raw"
+          sort << "#{sort_field}.raw" # .raw lets us sort on the non-tokenized string
         end
       else
-        sort << "#{params["sort"]}.raw"
+        sort << "#{params["sort"]}.raw" # .raw lets us sort on the non-tokenized string
       end
     else
       if fields.include?("name")
-        sort << "name.raw"
+        sort << "name.raw" # .raw lets us sort on the non-tokenized string
       end
     end
 
@@ -472,14 +474,16 @@ class ElasticSearchIO
       target_obj = response["_source"]
       ids_to_check = {}
       target_obj.keys.each do |key|
-        if target_obj[key].is_a?(Array)
-          target_obj[key].each do |possibility|
-            if possibility.has_key?("id") && possibility.has_key?("&label")
-              ids_to_check[possibility["id"]] = possibility["&label"]
+        if key[0] != "&"
+          if target_obj[key].is_a?(Array)
+            target_obj[key].each do |possibility|
+              if possibility.has_key?("id") && possibility.has_key?("&label")
+                ids_to_check[possibility["id"]] = possibility["&label"]
+              end
             end
+          elsif target_obj[key].is_a?(Hash) && target_obj[key].has_key?("id") && target_obj[key].has_key?("&label")
+            ids_to_check[target_obj[key]["id"]] = target_obj[key]["&label"]
           end
-        elsif target_obj[key].is_a?(Hash) && target_obj[key].has_key?("id") && target_obj[key].has_key?("&label")
-          ids_to_check[target_obj[key]["id"]] = target_obj[key]["&label"]
         end
       end
       ids_to_check.keys.each do |id|

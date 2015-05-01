@@ -28,8 +28,10 @@ class BulkController < ApplicationController
     end
     result = BulkLoader.new.wipe(user_obj)
     if result[:success]
+      SecurityGoon.clear_cache
       render :status => 200, :json => result
     else
+      SecurityGoon.clear_cache
       render :status => 500, :json => result
     end
   end
@@ -55,8 +57,10 @@ class BulkController < ApplicationController
   	json_body = params["_json"]
     result = BulkLoader.new.load(json_body, user_obj)
     if result[:success]
+      SecurityGoon.clear_cache
       render :status => 200, :json => result
     else
+      SecurityGoon.clear_cache
       render :status => 500, :json => result
     end
   end
@@ -81,8 +85,10 @@ class BulkController < ApplicationController
 
     result = BulkLoader.new.export(params[:target], user_obj)
     if result[:success]
+      SecurityGoon.clear_cache
       render :status => 200, :json => result
     else
+      SecurityGoon.clear_cache
       render :status => 500, :json => result
     end
   end
