@@ -69,7 +69,7 @@ class ElasticSearchIO
     search_string = (params.has_key?("search_string") && params["search_string"] != nil && params["search_string"].length >= 2) ? params["search_string"] : nil
     max_results = params.has_key?("max_results") ? params["max_results"] : 10
     from = params.has_key?("page") ? (params["page"].to_i - 1) * max_results : 0
-    fields = params.has_key?("fields") ? params["fields"] : [ "name", "definition", "description" ]
+    fields = params.has_key?("fields") ? params["fields"] : [ "name", "definition", "description", "timestamp" ]
     search_fields = params.has_key?("search_fields") ?
       params["search_fields"] : [ "name^10", "definition", "description" ]
 
