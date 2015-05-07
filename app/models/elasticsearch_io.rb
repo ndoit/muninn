@@ -440,17 +440,43 @@ class ElasticSearchIO
 
     node_model = GraphModel.instance.nodes[label.to_sym]
 
+    # mxflztqix is a hacky way of ensuring that no property in n can match the security role name.
     node_data = CypherTools.execute_query_into_hash_array("
 
     START n=node({id})
     MATCH (n:" + label.to_s + ")
+    OPTIONAL MATCH (n)-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
     RETURN
+    sr.name AS mxflztqix,
     " + node_model.property_string("n"),
     { :id => id },
     nil)
 
-    LogTime.info("Data retrieved, loading to search engine.")
-    return update_nodes_with_data(label, node_data, update_related_nodes)
+    LogTime.info("Data retrieved, processing.")
+
+    nodes_by_id = {}
+    node_data.each do |data_row|
+      if !nodes_by_id.has_key?(data_row["id"])
+        node = {}
+        data_row.keys.each do |key|
+          if key != "mxflztqix"
+            node[key] = data_row[key]
+          end
+        end
+        nodes_by_id[data_row["id"]] = node
+      else
+        node = nodes_by_id[data_row["id"]]
+      end
+      if data_row["mxflztqix"] != nil
+        if node["allows_access_with"] == nil
+          node["allows_access_with"] = [ { "name" => data_row["mxflztqix"] } ]
+        else
+          node["allows_access_with"] << { "name" => data_row["mxflztqix"] }
+        end
+      end
+    end
+
+    return update_nodes_with_data(label, nodes_by_id.values, update_related_nodes)
   end
 
   def update_all_nodes(label, update_related_nodes = true)

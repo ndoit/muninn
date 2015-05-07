@@ -451,7 +451,7 @@ def execute_tests
   my_fails += validate_get(
     "/reports?cas_user=caesar",
     { results: [
-      { data: { name: "Foo", description: "Foo Report.", terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Rockand" } ] } }
+      { data: { name: "Foo", description: "Foo Report.", allows_access_with: [ { name: "Rockand" } ] } }
       ] }
     )
 
@@ -483,39 +483,39 @@ def execute_tests
   my_fails += validate_get(
     "/reports?cas_user=cleopatra",
     { results: [
-      { data: { name: "Foo", terms: [ { name: "Fall" } ], allows_access_with: [ { name: "Rockand" } ] } }
+      { data: { name: "Foo", allows_access_with: [ { name: "Rockand" } ] } }
       ] }
     )
   my_fails += validate_get(
     "/reports?cas_user=caesar",
     { results: [
-      { data: { name: "Foo", terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Rockand" } ] } },
-      { data: { name: "Bar", terms: [ { name: "Fall" }, { name: "Spring" } ], allows_access_with: [ { name: "Ingstone" } ] } }
+      { data: { name: "Foo", allows_access_with: [ { name: "Rockand" } ] } },
+      { data: { name: "Bar", allows_access_with: [ { name: "Ingstone" } ] } }
       ] }
     )
   my_fails += validate_get(
     "/reports?cas_user=mark_antony",
     { results: [
-      { data: { name: "Foo", terms: [ { name: "Spring" } ], allows_access_with: [ ] } },
-      { data: { name: "Bar", terms: [ { name: "Spring" } ], allows_access_with: [ { name: "Ingstone" } ] } }
+      { data: { name: "Foo", allows_access_with: [ ] } },
+      { data: { name: "Bar", allows_access_with: [ { name: "Ingstone" } ] } }
       ] }
     )
   my_fails += validate_get(
     "/terms?cas_user=cleopatra",
     { results: [
-      { data: { name: "Fall", reports: [ { name: "Foo" } ], allows_access_with: [ { name: "Rockand" } ] } }
+      { data: { name: "Fall", allows_access_with: [ { name: "Rockand" } ] } }
       ] }
     )
   my_fails += validate_get(
     "/security_roles?cas_user=cleopatra",
     { results: [
-      { data: { name: "Rockand", terms: [ { name: "Fall" } ], reports: [ { name: "Foo" } ], users: [ { net_id: "cleopatra" } ] } }
+      { data: { name: "Rockand" } }
       ] }
     )
   my_fails += validate_get(
     "/users?cas_user=cleopatra",
     { results: [
-      { data: { net_id: "cleopatra", security_roles: [ { name: "Rockand" } ] } }
+      { data: { net_id: "cleopatra" } }
       ] }
     )
 
