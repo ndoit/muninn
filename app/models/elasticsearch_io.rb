@@ -268,45 +268,6 @@ class ElasticSearchIO
 
       node_model = GraphModel.instance.nodes[label.to_sym]
 
-      LogTime.info("Outgoing relations: " + node_model.outgoing.to_s)
-      node_model.outgoing.each do |relation|
-        target_model = GraphModel.instance.nodes[relation.target_label]
-        related_nodes = CypherTools.execute_query_into_hash_array("
-          START n=node({id})
-          MATCH (n:" + label.to_s + ")-[r:" + relation.relation_name + "]->(other:" + target_model.label.to_s + ")
-          OPTIONAL MATCH (other:" + target_model.label.to_s + ")-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
-          RETURN id(other) AS id, sr.name AS allows_access_with, other." + target_model.unique_property + relation.property_string("r"),
-          { :id => id }, nil)
-        node[relation.name_to_source] = process_related_nodes(related_nodes, target_model.label)
-        if relation.name_to_source == "allows_access_with"
-          related_nodes.each do |node_hash|
-            node["&allows_access_with"] << node_hash["name"]
-          end
-        end
-        if update_related_nodes
-          related_nodes.each do |related_node|
-            update_node(target_model.label, related_node["id"], false)
-          end
-        end
-      end
-
-      LogTime.info("Incoming relations: " + node_model.incoming.to_s)
-      node_model.incoming.each do |relation|
-        source_model = GraphModel.instance.nodes[relation.source_label]
-        related_nodes = CypherTools.execute_query_into_hash_array("
-          START n=node({id})
-          MATCH (n:" + label.to_s + ")<-[r:" + relation.relation_name + "]-(other:" + source_model.label.to_s + ")
-          OPTIONAL MATCH (other:" + source_model.label.to_s + ")-[:ALLOWS_ACCESS_WITH]->(sr:security_role)
-          RETURN id(other) AS id, sr.name AS allows_access_with, other." + source_model.unique_property + relation.property_string("r"),
-          { :id => id }, nil)
-        node[relation.name_to_target] = process_related_nodes(related_nodes, source_model.label)
-        if update_related_nodes
-          related_nodes.each do |related_node|
-            update_node(source_model.label, related_node["id"], false)
-          end
-        end
-      end
-
       LogTime.info("Updating node: " + id.to_s)
 
       uri = URI.parse("http://localhost:9200/graph_nodes/#{label}/#{id}")
@@ -325,39 +286,6 @@ class ElasticSearchIO
       end
     end
     return { success: true }
-  end
-
-  def process_related_nodes(related_nodes, label)
-    output = []
-    output_nodes = {}
-    related_nodes.each do |node|
-      if output_nodes.has_key?(node["id"])
-        if node["allows_access_with"] != nil
-          output_nodes[node["id"]]["&allows_access_with"] << { "name" => node["allows_access_with"] }
-        end
-      else
-        new_node = { "&label" => label }
-        LogTime.info node.to_s
-        node.keys.each do |key|
-          if key=="allows_access_with"
-            if node[key] != nil
-              new_node["&allows_access_with"] = [ { "name" => node[key] } ]
-            else
-              new_node["&allows_access_with"] = []
-            end
-          else
-            new_node[key] = node[key]
-          end
-        end
-        output_nodes[node["id"]] = new_node
-      end
-    end
-
-    output = []
-    output_nodes.keys.each do |key|
-      output << output_nodes[key]
-    end
-    return output
   end
 
   def run_initialization_tasks
