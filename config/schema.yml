@@ -10,8 +10,12 @@ nodes:
             - source_system
             - possible_values
             - notes
-            - data_sensitivity
             - data_availability
+            - sensitivity_classification
+            - access_designation
+            - sensitivity_access_notes
+    permission_group:
+        unique_property: name
     office:
         unique_property: name
     report:
@@ -25,6 +29,7 @@ nodes:
             - embedJSON
             - thumbnail_uri
             - gridsize
+            - timestamp
     security_role:
         unique_property: name
         other_properties: 
@@ -76,6 +81,9 @@ relationships:
         name_to_source: allows_access_with
         properties:
             - allow_update_and_delete
+    PERMISSION_GROUP:
+        source_label: permission_group
+        target_label: term
     HAS_ROLE:
         source_label: user
         target_label: security_role
