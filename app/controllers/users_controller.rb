@@ -23,22 +23,22 @@ class UsersController < GraphController
     end
   end
 
-  def user_roles
-    begin
-      role_hash = {}
-      role_hash["roles"] = []
-      # with this line, EVERYONE can publish a report!
-      role_hash["roles"] << "Report Publisher"
+  # def user_roles
+  #   begin
+  #     role_hash = {}
+  #     role_hash["roles"] = []
+  #     # with this line, EVERYONE can publish a report!
+  #     role_hash["roles"] << "Report Publisher"
 
-      if ( params[:netid] == 'afreda' or 'rsnodgra' )
-        role_hash["roles"] << "Term Editor"
-      end 
+  #     if ( params[:netid] == 'afreda' or 'rsnodgra' )
+  #       role_hash["roles"] << "Term Editor"
+  #     end 
 
-      render json: role_hash.to_json
-    rescue (Exception e)
-      render json: {}
-    end
-  end
+  #     render json: role_hash.to_json
+  #   rescue (Exception e)
+  #     render json: {}
+  #   end
+  # end
 
   def my_access
     output = SecurityGoon.who_is_this(params)
