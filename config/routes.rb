@@ -30,7 +30,8 @@ BIPortalDataService::Application.routes.draw do
   get '/terms/id/:id/:version_number', to: 'terms#show'
   get '/terms/:unique_property/:version_number', to: 'terms#show'
 
-  get '/users/:netid/roles', to: 'users#user_roles'
+  # get '/users/:netid/roles', to: 'users#user_roles'
+  get '/users/:netid/admin_emeritus', to: 'users#admin_emeritus'
   post '/users/load_from_aws', to: 'users#load_from_aws'
 
   create_resources 'users'
@@ -39,6 +40,8 @@ BIPortalDataService::Application.routes.draw do
   #put '/proposed_terms/publish/:id', to: 'proposed_terms#publish'
 
   create_resources 'offices'
+
+  create_resources 'permission_groups'
 
   create_resources 'datasets'
 
@@ -57,4 +60,6 @@ BIPortalDataService::Application.routes.draw do
   post 'search/reinitialize', to: 'search#reinitialize'
 
   get 'my_access', to: 'users#my_access'
+
+  get 'new_search', to: 'search#new_search'
 end

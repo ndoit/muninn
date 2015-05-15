@@ -6,6 +6,6 @@ BIPortalDataService::Application.initialize!
 
 # RubyCAS
 CASClient::Frameworks::Rails::Filter.configure(
-    :cas_base_url => "https://login-test.cc.nd.edu/cas/",
-    :service_url => "https://data-test.cc.nd.edu/"
+    :cas_base_url => Rails.application.config.cas_url,
+    :service_url => Rails.application.config.huginn_url
   )

@@ -13,31 +13,32 @@ class UsersController < GraphController
     return UserRepository.new
   end
 
-  def extract_json_message(rawdata)
+  def extract_user_values(rawdata)
     begin
-      data = JSON.parse(rawdata.body)
-      return data["message"]
+      data = JSON.parse(rawdata)
+      return data["entitlements"]
     rescue Exception => e  
       LogTime.info "Extract failed with error: " + e.message
       return []
     end
   end
 
-  def user_roles
-    begin
-      role_hash = {}
-      role_hash["roles"] = []
-      role_hash["roles"] << "Report Publisher"
+  # def user_roles
+  #   begin
+  #     role_hash = {}
+  #     role_hash["roles"] = []
+  #     # with this line, EVERYONE can publish a report!
+  #     role_hash["roles"] << "Report Publisher"
 
-      if ( params[:netid] == 'afreda' )
-        role_hash["roles"] << "Term Editor"
-      end 
+  #     if ( params[:netid] == 'afreda' or 'rsnodgra' )
+  #       role_hash["roles"] << "Term Editor"
+  #     end 
 
-      render json: role_hash.to_json
-    rescue (Exception e)
-      render json: {}
-    end
-  end
+  #     render json: role_hash.to_json
+  #   rescue (Exception e)
+  #     render json: {}
+  #   end
+  # end
 
   def my_access
     output = SecurityGoon.who_is_this(params)
@@ -45,9 +46,9 @@ class UsersController < GraphController
   end
 
   def parse_message(rawdata, role_map)
-    LogTime.info "Extracting JSON from AWS message."
+    LogTime.info "Extracting JSON user values from AWS message."
 
-    data = extract_json_message(rawdata)
+    data = extract_user_values(rawdata)
 
     LogTime.info "Extracted: " + data.to_s
 
@@ -129,6 +130,8 @@ class UsersController < GraphController
 
     messages = sqs.receive_message queue_url: qurl.queue_url
 
+    LogTime.info "Retrieved: #{messages.to_s}"
+
     LogTime.info messages[:messages].length.to_s + " messages found."
 
     return {
@@ -174,7 +177,7 @@ class UsersController < GraphController
     aws_queue[:messages].each do |rawdata|
       LogTime.info "Raw message: " + rawdata.to_s
 
-      users = parse_message(rawdata, role_map)
+      users = parse_message(rawdata.body, role_map)
       processed = processed + 1
 
       if users.length > 0

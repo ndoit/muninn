@@ -32,6 +32,7 @@ class GraphController < ApplicationController
     LogTime.info "Writing to database creating node."
     output = repository.write(params, true, user_result[:user])
     if output[:success]
+      SecurityGoon.clear_cache
       render :status => 200, :json => output
     else
       render :status => 500, :json => output
@@ -53,6 +54,7 @@ class GraphController < ApplicationController
     LogTime.info "Writing to database."
     output = repository.write(params, false, user_result[:user])
     if output[:success]
+      SecurityGoon.clear_cache
       render :status => 200, :json => output
     else
         render :status => 500, :json => output
@@ -101,7 +103,8 @@ class GraphController < ApplicationController
   
     LogTime.debug "Rendering output."
     if output[:success]
-        render :status => 200 ,:json => output
+      SecurityGoon.clear_cache
+      render :status => 200 ,:json => output
     else
         render :status => 500 ,:json => output
     end

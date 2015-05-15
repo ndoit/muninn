@@ -4,6 +4,9 @@ class SearchController < ApplicationController
   #We don't maintain sessions, so we don't need to worry about cross-site request forgery.
   skip_before_action :verify_authenticity_token
 
+  #All Muninn controllers are API controllers. No layout.
+  layout false
+
   def rebuild
     user_result = SecurityGoon.who_is_this(params)
     if !user_result[:success]
@@ -43,6 +46,16 @@ class SearchController < ApplicationController
       render :status => 500, :json => output
     end
   end
+
+  def new_search
+    # new_search has its own streamlined call to SecurityGoon.
+    output = ElasticSearchIO.instance.new_search(params)
+    if output[:success]
+      render :status => 200, :json => output
+    else
+      render :status => 500, :json => output
+    end
+  end
   
   def search
     user_result = SecurityGoon.who_is_this(params)
@@ -67,13 +80,14 @@ class SearchController < ApplicationController
   end
   
   def advanced_search
+    LogTime.info("Starting custom search on #{params.to_s}...")
     user_result = SecurityGoon.who_is_this(params)
     if !user_result[:success]
       render :status => 500, :json => user_result
       return
     end
 
-    LogTime.info params.to_s
+    LogTime.info "User validated."
     if params.has_key?("search")
       query_body = params["search"]
     else
@@ -82,6 +96,7 @@ class SearchController < ApplicationController
     end
 
     output = ElasticSearchIO.instance.advanced_search(query_body, user_result[:user], nil)
+    LogTime.info("Output retrieved.")
     if output[:success]
       render :status => 200, :json => output
     else

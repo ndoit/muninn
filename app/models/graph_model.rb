@@ -4,6 +4,20 @@ class NodeModel
   attr_accessor :label, :properties, :unique_property
   attr_accessor :outgoing, :incoming
 
+  def has_relation_named?(str)
+    outgoing.each do |rel|
+      if rel.name_to_source == str
+        return true
+      end
+    end
+    incoming.each do |rel|
+      if rel.name_to_target == str
+        return true
+      end
+    end
+    return false
+  end
+
   def parameters_contain_property(parameters, property)
     if parameters.has_key?(:properties) && parameters[:properties].include?(property)
       return true
@@ -30,7 +44,7 @@ class NodeModel
     #@is_secured = false
   end
 
-  def property_string(node_reference, include_sensitive = false)
+  def property_string(node_reference)
     output = "ID(#{node_reference}) AS id"
   	@properties.each do |property|
   	  output = output + ", #{node_reference}.#{property}"
@@ -38,7 +52,7 @@ class NodeModel
   	return output
   end
 
-  def property_write_string(node_reference, include_sensitive = false)
+  def property_write_string(node_reference, node_contents = nil)
     output = nil
   	if node_reference == nil || node_reference == ""
         node_reference = ""
@@ -46,11 +60,13 @@ class NodeModel
         node_reference = node_reference + "."
       end
   	@properties.each do |property|
-  	  if output == nil
-  	    output = "#{node_reference}#{property} = { #{property} }"
-  	  else
-  	    output = output + ", #{node_reference}#{property} = { #{property} }"
+      if node_contents == nil || node_contents.has_key?(property)
+    	  if output == nil
+    	    output = "#{node_reference}#{property} = { #{property} }"
+    	  else
+    	    output = output + ", #{node_reference}#{property} = { #{property} }"
         end
+      end
   	end
   	return output
   end

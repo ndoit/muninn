@@ -10,45 +10,41 @@ nodes:
             - source_system
             - possible_values
             - notes
-            - data_sensitivity
             - data_availability
+            - sensitivity_classification
+            - access_designation
+            - sensitivity_access_notes
+    permission_group:
+        unique_property: name
     office:
         unique_property: name
     report:
         unique_property: name
         other_properties:
-            - office_owner
             - datasource
             - data_last_updated 
             - description
-            - embedJSON
+            - tableau_link
             - report_type
+            - embedJSON
             - thumbnail_uri
-    domain_tag:
-        unique_property: name
-    bus_process_tag:
-        unique_property: name
+            - gridsize
+            - timestamp
     security_role:
         unique_property: name
         other_properties: 
-            - role_eds_code
             - is_public
             - is_admin
             - create_access_to
             - read_access_to
             - update_access_to
             - delete_access_to
-            - report_role
             - iam_export_code
     user:
         unique_property: net_id
+        other_properties:
+            - admin_emeritus
 relationships:
-    HAS_DOMAIN_TAG:
-        source_label: report
-        target_label: domain_tag
-    HAS_BUSPROCESS_TAG:
-        source_label: report
-        target_label: bus_process_tag
     HAS_STAKE_IN:
         source_label: office
         name_to_source: stakes
@@ -63,12 +59,19 @@ relationships:
         target_label: office
         source_label: 
             - report
-            - dataset    
+            - dataset
+        properties:
+            - stake   
     CONTAINS:
         target_label: term
         source_label: 
             - report
             - dataset
+    SUBREPORTS:
+        source_label: report
+        target_label: report
+        name_to_source: aggregator
+        name_to_target: subreports
     ALLOWS_ACCESS_WITH:
         target_label: security_role
         source_label:
@@ -78,6 +81,9 @@ relationships:
         name_to_source: allows_access_with
         properties:
             - allow_update_and_delete
+    PERMISSION_GROUP:
+        source_label: permission_group
+        target_label: term
     HAS_ROLE:
         source_label: user
         target_label: security_role

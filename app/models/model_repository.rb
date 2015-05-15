@@ -166,80 +166,7 @@ class ModelRepository
   	  return { message: "#{primary_label} already exists.", id: create_result["id"], success: false }
   	end
 
-    # The node was created new. Grant ownership rights if possible.
-    ownership = grant_ownership_rights(params, user_obj, create_result["id"].to_i, node_model, tx)
-
-  	return { id: create_result["id"], success: true, has_ownership_rights: ownership }
-  end
-
-  def grant_ownership_rights(params, user_obj, id, node_model, tx)
-    # To be used when a node was just created. We want to ensure that the user who created it is given
-    # update/delete access if possible. Returns true if successful, false if not.
-
-    if user_obj["is_admin"]
-      # No changes necessary, user is an admin.
-      return true
-    end
-
-    if user_obj["update_access_to"].include?(node_model.label.to_s) &&
-      user_obj["delete_access_to"].include?(node_model.label.to_s)
-      # No changes necessary, user already has all required access.
-      return true
-    end
-
-    ownership_possible = false
-    node_model.outgoing.each do |relation|
-      if relation.relation_name == "ALLOWS_ACCESS_WITH" && relation.target_label == :security_role
-        ownership_possible = true
-        break
-      end
-    end
-    if !ownership_possible
-      return false
-    end
-
-    # Now we know that the user does not have ownership rights, but that it is possible to grant those rights
-    # for this node type. Now we need to determine which security role should get those rights.
-    role_id = nil
-    if params.has_key?(:create_as)
-      target_role = params[:create_as]
-      if !user_obj["roles"].has_key?(target_role)
-        # You can't create under a role you don't belong to!
-        raise "User does not have security role " + target_role.to_s + "."
-        return
-      end
-      if !user_obj["roles"][target_role]["create_access_to"].include?(node_model.label.to_s)
-        # This role doesn't have create access for the target node type.
-        raise "Security role " + target_role + " does not have access to create " + node_model.label.to_s.pluralize + "."
-        return
-      end
-      role_id = user_obj["roles"][target_role]["id"]
-    else
-      # You didn't say what role to create under, so we're just going to go through your roles and grab the
-      # first one with create access for this node type. Good luck.
-      user_obj["roles"].keys.each do |role|
-        if user_obj["roles"][role]["create_access_to"].include?(node_model.label.to_s)
-          role_id = user_obj["roles"][role]["id"]
-          break
-        end
-      end
-    end
-
-    if role_id == nil
-      # This should never happen; it should not be possible to get this far if you don't have a role with create
-      # access for this node type. But just in case you somehow do get here...
-      raise "User does not have a security role with access to create " + node_model.label.to_s.pluralize + "."
-      return
-    end
-
-    # Okay! We have finally picked out an appropriate security role. Now to set up access:
-    security_role_model = GraphModel.instance.nodes[:security_role]
-    output = CypherTools.execute_query_into_hash_array("
-      START n=node({id}), sr=node({role_id})
-      CREATE (n)-[r:ALLOWS_ACCESS_WITH { allow_update_and_delete: true }]->(sr)
-      RETURN Id(r)
-    ", { :id => id, :role_id => role_id }, tx)
-    return (output.length > 0)
+  	return { id: create_result["id"], success: true }
   end
   
   def update_primary_node(params, user_obj, tx)
@@ -278,7 +205,7 @@ class ModelRepository
         SET
         primary.modified_date = {now},
         primary.modified_by = {user},
-        " + node_model.property_write_string("primary") + "
+        " + node_model.property_write_string("primary", node_contents) + "
         RETURN Id(primary)"
       else
         parameters = { :unique_property => params[:unique_property], :now => now, :user => user_obj["net_id"], :user_id => user_obj["id"] }
@@ -289,7 +216,7 @@ class ModelRepository
         SET
         primary.modified_date = {now},
         primary.modified_by = {user},
-        " + node_model.property_write_string("primary") + "
+        " + node_model.property_write_string("primary", node_contents) + "
         RETURN Id(primary)"
       end
 
@@ -323,7 +250,7 @@ class ModelRepository
   	  number_of = relation.source_number
   	end
   	
-  	delete_relationships(id, relation, direction, tx)
+  	existing_relationship_ids = get_existing_relationships(id, relation, direction, tx)
   	params_element = params[params_key]
   	
   	if number_of == :many
@@ -351,10 +278,14 @@ class ModelRepository
   	    return write_relation_result
   	  end
   	end
+
+    LogTime.info("Deleting existing relationships...")
+    delete_existing_relationships(existing_relationship_ids, relation, tx)
+
   	return { success: true }
   end
   
-  def delete_relationships(id, relation, direction, tx)
+  def get_existing_relationships(id, relation, direction, tx)
   	relationship_name = relation.relation_name
     if direction == :outgoing
   	  other_node_label = relation.target_label
@@ -363,14 +294,32 @@ class ModelRepository
   	  other_node_label = relation.source_label
   	  match_string = "(other:#{other_node_label})-[r:#{relationship_name}]->(primary:#{primary_label})"
   	end
-      CypherTools.execute_query("
+    list = CypherTools.execute_query_into_hash_array("
   	
   	  START primary=node({id})
   	  MATCH #{match_string}
-  	  DELETE r
+  	  RETURN id(r) AS Id
   	
   	", { :id => id }, tx
   	)
+    output = []
+    list.each do |item|
+      output << item["Id"]
+    end
+    return output
+  end
+  
+  def delete_existing_relationships(existing_relationship_ids, relation, tx)
+    if existing_relationship_ids.length > 0
+      CypherTools.execute_query("
+
+        MATCH (a:#{relation.source_label.to_s})-[r:#{relation.relation_name}]->(b#{relation.target_label.to_s})
+        WHERE id(r) IN {ids}
+        DELETE r
+
+        ", { :ids => existing_relationship_ids }, tx
+        )
+    end
   end
 
   def has_existing_source(target_start, target_match, relationship_name, parameters)
@@ -464,21 +413,35 @@ class ModelRepository
         else
           target_start = "u=node({user_id})"
         end
-        target_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        if other_node_model.label.to_s == "security_role"
+          target_match += "<-[:HAS_ROLE]-(u:user)"
+        else
+          target_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        end
       else
         if source_start != nil
           source_start += ", u=node({user_id})"
         else
           source_start = "u=node({user_id})"
         end
-        source_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        if other_node_model.label.to_s == "security_role"
+          source_match += "<-[:HAS_ROLE]-(u:user)"
+        else
+          source_match += "-[:ALLOWS_ACCESS_WITH]->(sr:security_role)<-[:HAS_ROLE]-(u:user)"
+        end
       end
     end
 
   	property_write_string = relation.property_write_string(nil)
   	relation.properties.each do |property|
 	  if params_element.has_key?(property) && params_element[property] != nil
-	    parameters[property] = params_element[property]
+      if relationship_name == "ALLOWS_ACCESS_WITH" && property == "allow_update_and_delete"
+        # Unfortunate but necessary hack. JSON parsers aren't always consistent about whether they send bools
+        # as true/false or "true"/"false".
+        parameters[property] = (params_element[property] == true) || (params_element[property] == "true")
+      else
+	     parameters[property] = params_element[property]
+      end
 	  else
 	  	return { message: "Cannot add #{relationship_name} connection without specifying #{property}.", success: false }
 	  end
@@ -609,31 +572,57 @@ class ModelRepository
       LogTime.info("Access limited.")
     end
 
+    match_string = "MATCH (n:#{node_model.label})"
+    if access_is_limited
+      match_string += "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)"
+    end
+    if identifier_is_id
+      start_string = "START n=node({id})" + (access_is_limited ? ", u=node({user_id})" : "")
+      where_string = ""
+    else
+      start_string = (access_is_limited ? "START u=node({user_id})" : "")
+      where_string = "WHERE n.#{node_model.unique_property} = {unique_property}"
+    end
+    return_string = "RETURN
+      n.created_date,
+      n.modified_date,
+      n.created_by,
+      n.modified_by,
+      #{node_model.property_string("n")}"
+
+    query_string = "
+      #{start_string}
+      #{match_string}
+      #{where_string}
+      #{return_string}
+      "
+    if access_is_limited && @primary_label == :security_role
+      # Regardless of access, you can always see security roles to which you belong.
+      query_string += "
+      UNION
+      #{start_string}
+      MATCH (n:security_role)<-[:HAS_ROLE]-(u)
+      #{where_string}
+      #{return_string}"
+    end
+
+    if access_is_limited && @primary_label == :user && (!identifier_is_id || identifier == user_obj["id"])
+      # Regardless of access, you can always see yourself.
+      query_string += "
+      UNION
+      START n=node({user_id})
+      #{where_string}
+      #{return_string}"
+    end
+
   	if identifier_is_id
   	  LogTime.info("Querying with id.")
-  	  output = CypherTools.execute_query_into_hash_array("
-  	    START n=node({id})" + (access_is_limited ? ", u=node({user_id})" : "") + "
-    		MATCH (n:" + node_model.label + ")" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
-    		RETURN
-    		n.created_date,
-    		n.modified_date,
-    		n.created_by,
-    		n.modified_by,
-    		" + node_model.property_string("n", user_obj != nil),
+  	  output = CypherTools.execute_query_into_hash_array(query_string,
   		{ :id => identifier.to_i, :user_id => user_obj["id"] },
   		nil)
   	else
   	  LogTime.info("Querying without id.")
-  	  output = CypherTools.execute_query_into_hash_array(
-        (access_is_limited ? "START u=node({user_id})" : "") + "
-    		MATCH (n:" + node_model.label + ")" + (access_is_limited ? "-[:ALLOWS_ACCESS_WITH]->(s)<-[:HAS_ROLE]-(u)" : "") + "
-    		WHERE n." + node_model.unique_property + " = {unique_property}
-    		RETURN
-    		n.created_date,
-    		n.modified_date,
-    		n.created_by,
-    		n.modified_by,
-    		" + node_model.property_string("n", user_obj != nil),
+  	  output = CypherTools.execute_query_into_hash_array(query_string,
   		{ :unique_property => identifier, :user_id => user_obj["id"] },
   		nil)
   	end
@@ -645,7 +634,6 @@ class ModelRepository
   end
   
   def read_relationship(id, relation, direction, user_obj)
-
     LogTime.info("Reading relation: " + relation.to_s)
   	relationship_name = relation.relation_name
       if direction == :outgoing
@@ -656,32 +644,61 @@ class ModelRepository
   	else
   	  other_node_label = relation.source_label
       other_node_model = GraphModel.instance.nodes[other_node_label]
-  	  match_string = "(other:#{other_node_label})-[r:#{relationship_name}]->(primary:#{primary_label})"
+      match_string = "(primary:#{primary_label})<-[r:#{relationship_name}]-(other:#{other_node_label})"
   	  return_array = relation.source_number == :many #If this relationship is many-to-x, return an array.
   	end
 
     access_is_limited = !SecurityGoon.check_for_full_read(user_obj, other_node_label)
+    start_string = "START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : "")
+
     if access_is_limited
-      if direction==:outgoing
-        match_string = "(u)-[:HAS_ROLE]->(s:security_role)<-[:ALLOWS_ACCESS_WITH]-" + match_string
-      else
-        match_string = match_string + "-[:ALLOWS_ACCESS_WITH]->(s:security_role)<-[:HAS_ROLE]-(u)"
+      if other_node_label == :security_role
+        if id == user_obj["id"] && relationship_name == "HAS_ROLE" && direction == :outgoing
+          role_match_string = match_string
+        else
+          role_match_string = match_string + "<-[:HAS_ROLE]-(u)"
+        end
       end
+      if primary_label == :security_role && relationship_name == "ALLOWS_ACCESS_WITH" && direction == :incoming
+        secured_match_string = "(u)-[:HAS_ROLE]->#{match_string}"
+      else
+        secured_match_string = match_string + "-[:ALLOWS_ACCESS_WITH]->(s:security_role)<-[:HAS_ROLE]-(u)"
+      end
+    else
+      secured_match_string = match_string
     end
+    return_string = "RETURN
+      other.created_date,
+      other.modified_date,
+      other.created_by,
+      other.modified_by,
+      " + other_node_model.property_string("other") + relation.property_string("r")
   	
   	LogTime.info("return_array = " + return_array.to_s)
+
+    query_string = "
+      #{start_string}
+      MATCH #{secured_match_string}
+      #{return_string}"
+    if access_is_limited && other_node_label == :security_role
+      # Regardless of access, you can always see security roles to which you belong.
+      query_string += "
+      UNION
+      #{start_string}
+      MATCH #{role_match_string}
+      #{return_string}"
+    end
+    if access_is_limited && other_node_label == :user
+      # Regardless of access, you can always see yourself.
+      query_string += "
+      UNION
+      START primary=node({id}), other=node({user_id})
+      MATCH #{match_string}
+      #{return_string}"
+    end
   	  
-    output = CypherTools.execute_query_into_hash_array("
-  	  START primary=node({id})" + (access_is_limited ? ", u=node({user_id})" : "") + "
-  	  MATCH #{match_string}
-  	  RETURN
-  	  other.created_date,
-  	  other.modified_date,
-  	  other.created_by,
-  	  other.modified_by,
-  	  " + other_node_model.property_string("other") + relation.property_string("r"),
-  	  { :id => id, :user_id => user_obj["id"] },
-	  nil)
+    output = CypherTools.execute_query_into_hash_array(query_string,
+  	  { :id => id, :user_id => user_obj["id"] }, nil)
   	  
   	if return_array
   	  return output

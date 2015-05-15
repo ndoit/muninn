@@ -34,6 +34,9 @@ BIPortalDataService::Application.configure do
   # Print deprecation notices to the stderr.
   config.active_support.deprecation = :stderr
 
+  config.cas_url = "https://login.cc.nd.edu/cas/"
+  config.huginn_url = "https://data-test.cc.nd.edu/"
+
   # If set to false, Muninn will accept whatever it's told by the front end
   # about who's connecting to it. If set to true, it will require a CAS
   # proxy ticket.
