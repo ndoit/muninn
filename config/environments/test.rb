@@ -78,8 +78,8 @@ BIPortalDataService::Application.configure do
   # Use default logging formatter so that PID and timestamp are not suppressed.
   config.log_formatter = ::Logger::Formatter.new
 
-  config.cas_url = "https://login.cc.nd.edu/cas/"
-  config.huginn_url = "https://data.nd.edu/"
+  config.cas_url = "https://login.nd.edu/cas/"
+  config.huginn_url = "https://data-test.nd.edu/"
 
   # If set to false, Muninn will accept whatever it's told by the front end
   # about who's connecting to it. If set to true, it will require a CAS
@@ -90,5 +90,5 @@ BIPortalDataService::Application.configure do
   # after downloading them. If set to true, it will delete them after
   # download.
   # This should be set to true in prod, false in dev/test.
-  config.delete_security_role_updates = true
+  config.delete_security_role_updates = false
 end
