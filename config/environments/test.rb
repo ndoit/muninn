@@ -90,5 +90,5 @@ BIPortalDataService::Application.configure do
   # after downloading them. If set to true, it will delete them after
   # download.
   # This should be set to true in prod, false in dev/test.
-  config.delete_security_role_updates = false
+  config.delete_security_role_updates = true
 end
